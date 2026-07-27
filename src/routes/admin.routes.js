@@ -14,6 +14,11 @@ import marketPlaceProductsValidationRules from "../validators/marketPlaceProduct
 import marketPlaceProductsUpdateValidationRules from "../validators/marketPlaceProductsUpdate.validators.js";
 import repairPartnerValidationRules from "../validators/repairPartner.validators.js";
 import updateRepairPartnerRules from "../validators/repairPartnerUpadation.validators.js";
+import {
+  estimateRepairRequestRules,
+  assignRepairPartnerRules,
+  completeRepairRequestRules,
+} from "../validators/repairRequest.validators.js";
 import upload from "../middlewares/multer.middlewares.js";
 
 const adminRouter = Router();
@@ -391,41 +396,79 @@ adminRouter.patch(
   adminController.updateProductStatus,
 );
 
+adminRouter.get(
+  "/repair-requests",
+  authMiddleware,
+  roleMiddleware("admin"),
+  adminController.getAllRepairRequestsAdmin,
+);
+
+adminRouter.get(
+  "/repair-requests/:requestId",
+  authMiddleware,
+  roleMiddleware("admin"),
+  adminController.getRepairRequestByIdAdmin,
+);
+
+adminRouter.patch(
+  "/repair-requests/:requestId/estimate",
+  authMiddleware,
+  roleMiddleware("admin"),
+  estimateRepairRequestRules,
+  adminController.sendRepairRequestEstimateAdmin,
+);
+
+adminRouter.patch(
+  "/repair-requests/:requestId/assign-partner",
+  authMiddleware,
+  roleMiddleware("admin"),
+  assignRepairPartnerRules,
+  adminController.assignRepairPartnerAdmin,
+);
+
+adminRouter.patch(
+  "/repair-requests/:requestId/complete",
+  authMiddleware,
+  roleMiddleware("admin"),
+  completeRepairRequestRules,
+  adminController.completeRepairRequestAdmin,
+);
+
 adminRouter.post(
   "/repair-partners",
   authMiddleware,
-  roleMiddleware('admin'),
+  roleMiddleware("admin"),
   repairPartnerValidationRules,
-  adminController.createRepairPartner
+  adminController.createRepairPartner,
 );
 
 adminRouter.get(
   "/repair-partners",
   authMiddleware,
   roleMiddleware("admin"),
-  adminController.getAllRepairPartner
+  adminController.getAllRepairPartner,
 );
 
 adminRouter.get(
   "/repair-partners/:partnerId",
   authMiddleware,
   roleMiddleware("admin"),
-  adminController.getOneRepairPartner
+  adminController.getOneRepairPartner,
 );
 
 adminRouter.patch(
   "/repair-partners/:partnerId",
   authMiddleware,
-  roleMiddleware('admin'),
+  roleMiddleware("admin"),
   updateRepairPartnerRules,
-  adminController.updateRepairPartner
+  adminController.updateRepairPartner,
 );
 
 adminRouter.patch(
   "/repair-partners/:partnerId/status",
   authMiddleware,
-  roleMiddleware('admin'),
-  adminController.updateRepairPartnerStatus
-)
+  roleMiddleware("admin"),
+  adminController.updateRepairPartnerStatus,
+);
 
 export default adminRouter;

@@ -152,4 +152,38 @@ const updateRepairRequestRules = [
   validateResult,
 ];
 
-export { createRepairRequestRules, updateRepairRequestRules };
+const estimateRepairRequestRules = [
+  body("estimatedPrice")
+    .notEmpty()
+    .withMessage("Estimated price is required")
+    .isFloat({ min: 0 })
+    .withMessage("Estimated price should be a positive number"),
+
+  body("adminRemarks").optional().trim(),
+
+  validateResult,
+];
+
+const assignRepairPartnerRules = [
+  body("repairPartner")
+    .notEmpty()
+    .withMessage("Repair partner is required")
+    .isMongoId()
+    .withMessage("Repair partner must be a valid MongoDB ObjectId"),
+
+  validateResult,
+];
+
+const completeRepairRequestRules = [
+  body("adminRemarks").optional().trim(),
+
+  validateResult,
+];
+
+export {
+  createRepairRequestRules,
+  updateRepairRequestRules,
+  estimateRepairRequestRules,
+  assignRepairPartnerRules,
+  completeRepairRequestRules,
+};

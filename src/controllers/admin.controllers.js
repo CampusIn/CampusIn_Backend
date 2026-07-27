@@ -44,6 +44,89 @@ import {
   getMarketplaceInventoryPipeline,
 } from "../utils/marketPlaceAnalytics.utils.js";
 import repairPartnerModel from "../models/repairPartner.models.js";
+import repairRequestModel from "../models/repairRequest.models.js";
+import { generateRepairRequestEstimateHTML } from "../utils/utils.js";
+
+const REPAIR_REQUEST_STATUSES = [
+  "SUBMITTED",
+  "PRICE_SENT",
+  "ACCEPTED",
+  "REJECTED",
+  "FORWARDED",
+  "COMPLETED",
+];
+const REPAIR_SERVICE_TYPES = ["MOBILE", "LAPTOP", "COOLERS", "OTHERS"];
+
+const addRepairRequestSearchFilter = (filter, search) => {
+  if (!search) {
+    return;
+  }
+
+  filter.$or = [
+    { requestNumber: { $regex: search, $options: "i" } },
+    { customerPhone: { $regex: search, $options: "i" } },
+  ];
+};
+
+const addRepairRequestStatusFilter = (filter, status) => {
+  if (!status) {
+    return;
+  }
+
+  if (!REPAIR_REQUEST_STATUSES.includes(status)) {
+    throw new ApiError(400, "Invalid status");
+  }
+
+  filter.requestStatus = status;
+};
+
+const addRepairRequestServiceTypeFilter = (filter, serviceType) => {
+  if (!serviceType) {
+    return;
+  }
+
+  if (!REPAIR_SERVICE_TYPES.includes(serviceType)) {
+    throw new ApiError(400, "Invalid service type");
+  }
+
+  filter.serviceType = serviceType;
+};
+
+const addRepairRequestPartnerFilter = (filter, repairPartner) => {
+  if (!repairPartner) {
+    return;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(repairPartner)) {
+    throw new ApiError(400, "Invalid repair partner ID");
+  }
+
+  filter.repairPartner = repairPartner;
+};
+
+const addRepairRequestDateFilter = (filter, fromDate, toDate) => {
+  if (!fromDate && !toDate) {
+    return;
+  }
+
+  filter.createdAt = {};
+
+  if (fromDate) {
+    const parsedFromDate = new Date(fromDate);
+    if (Number.isNaN(parsedFromDate.getTime())) {
+      throw new ApiError(400, "Invalid fromDate");
+    }
+    filter.createdAt.$gte = parsedFromDate;
+  }
+
+  if (toDate) {
+    const parsedToDate = new Date(toDate);
+    if (Number.isNaN(parsedToDate.getTime())) {
+      throw new ApiError(400, "Invalid toDate");
+    }
+    filter.createdAt.$lte = parsedToDate;
+  }
+};
 
 const viewAdminDashboard = asyncHandler(async (req, res) => {
   const [userCount, vendorCount, restaurantCount, orderCount, revenue] =
@@ -604,14 +687,16 @@ const updateCoupon = asyncHandler(async (req, res) => {
   }
 
   if (coupon.discountType === "PERCENTAGE") {
-    if (coupon.discountValue > 100)
-      {throw new ApiError(400, "Discount value cannot be greater than 100");}
+    if (coupon.discountValue > 100) {
+      throw new ApiError(400, "Discount value cannot be greater than 100");
+    }
 
-    if (coupon.maximumDiscount < 1)
-      {throw new ApiError(
+    if (coupon.maximumDiscount < 1) {
+      throw new ApiError(
         400,
         "Maximum discount anount should be greater than 0",
-      );}
+      );
+    }
   } else if (coupon.discountType === "FIXED") {
     coupon.maximumDiscount = 0;
   }
@@ -691,10 +776,9 @@ const getAnnouncements = asyncHandler(async (req, res) => {
   }
 
   if (isActive === "true") {
-    filter.isActive = true
-  }
-  else if (isActive === "false") {
-    filter.isActive = false
+    filter.isActive = true;
+  } else if (isActive === "false") {
+    filter.isActive = false;
   }
   const [announcements, totalAnnouncements] = await Promise.all([
     announcementModel
@@ -791,7 +875,7 @@ const updateAnnouncement = asyncHandler(async (req, res) => {
   }
 
   if (updates.priority !== undefined) {
-    if (updates.priority < 1){
+    if (updates.priority < 1) {
       throw new ApiError(400, "Priority cannot be less than 1");
     }
   }
@@ -2027,95 +2111,400 @@ const assignMarketPlaceDeliveryPartnerAdmin = asyncHandler(async (req, res) => {
     );
 });
 
+// Repair Request Module
+
+const getAllRepairRequestsAdmin = asyncHandler(async (req, res) => {
+  const {
+    search,
+    status,
+    serviceType,
+    repairPartner,
+    fromDate,
+    toDate,
+    page = 1,
+    limit = 5,
+  } = req.query;
+
+  const pageNumber = parseInt(page) || 1;
+  const limitNumber = parseInt(limit) || 5;
+  if (pageNumber < 1 || limitNumber < 1) {
+    throw new ApiError(400, "Invalid page or limit");
+  }
+
+  const filter = {};
+
+  addRepairRequestSearchFilter(filter, search);
+  addRepairRequestStatusFilter(filter, status);
+  addRepairRequestServiceTypeFilter(filter, serviceType);
+  addRepairRequestPartnerFilter(filter, repairPartner);
+  addRepairRequestDateFilter(filter, fromDate, toDate);
+
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const [repairRequests, totalRequests] = await Promise.all([
+    repairRequestModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .select(
+        "_id requestNumber serviceType customerPhone pickupLocation estimatedPrice requestStatus repairPartner createdAt updatedAt",
+      )
+      .populate({
+        path: "user",
+        select: "username email",
+      })
+      .populate({
+        path: "repairPartner",
+        select: "name phoneNumber specialisations",
+      })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean(),
+
+    repairRequestModel.countDocuments(filter),
+  ]);
+
+  const totalPages = Math.ceil(totalRequests / limitNumber);
+
+  if (repairRequests.length === 0 || !repairRequests) {
+    return res.status(200).json(
+      new ApiResponse(200, "No requests to display", {
+        repairRequests,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          totalRequests,
+          totalPages,
+        },
+      }),
+    );
+  }
+  return res.status(200).json(
+    new ApiResponse(200, "Repair requests fetched successfully", {
+      repairRequests,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        totalRequests,
+        totalPages,
+      },
+    }),
+  );
+});
+
+const getRepairRequestByIdAdmin = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new ApiError(400, "Invalid request ID");
+  }
+
+  const repairRequest = await repairRequestModel
+    .findById(requestId)
+    .populate({
+      path: "user",
+      select: "username email",
+    })
+    .populate({
+      path: "repairPartner",
+      select: "name phoneNumber specialisations isActive",
+    })
+    .select(
+      "requestNumber user serviceType description damageImages pickupLocation customerPhone estimatedPrice adminRemarks estimatedAt requestStatus acceptedAt repairPartner forwardedAt completedAt createdAt updatedAt",
+    )
+    .lean();
+
+  if (!repairRequest) {
+    throw new ApiError(404, "Repair request not found");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair request fetched successfully",
+        repairRequest,
+      ),
+    );
+});
+
+const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const { estimatedPrice, adminRemarks } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new ApiError(400, "Invalid request ID");
+  }
+
+  const repairRequest = await repairRequestModel.findById(requestId).populate({
+    path: "user",
+    select: "username email",
+  });
+
+  if (!repairRequest) {
+    throw new ApiError(404, "Repair request not found");
+  }
+
+  if (!["SUBMITTED", "PRICE_SENT"].includes(repairRequest.requestStatus)) {
+    throw new ApiError(
+      409,
+      `Estimate cannot be sent when request status is ${repairRequest.requestStatus}`,
+    );
+  }
+
+  if (!repairRequest.user?.email) {
+    throw new ApiError(400, "User does not have a valid email ID");
+  }
+
+  repairRequest.estimatedPrice = estimatedPrice;
+  repairRequest.adminRemarks = adminRemarks || null;
+  repairRequest.estimatedAt = new Date();
+  repairRequest.requestStatus = "PRICE_SENT";
+  await repairRequest.save();
+
+  try {
+    await sendEmail(
+      repairRequest.user.email,
+      `Repair estimate for ${repairRequest.requestNumber}`,
+      generateRepairRequestEstimateHTML(
+        repairRequest,
+        estimatedPrice,
+        adminRemarks,
+      ),
+    );
+  } catch {
+    throw new ApiError(400, "Estimate saved but email could not be sent");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Estimate sent successfully", repairRequest));
+});
+
+const assignRepairPartnerAdmin = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const { repairPartner } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new ApiError(400, "Invalid request ID");
+  }
+
+  const repairRequest = await repairRequestModel.findById(requestId);
+  if (!repairRequest) {
+    throw new ApiError(404, "Repair request not found");
+  }
+
+  if (repairRequest.requestStatus !== "ACCEPTED") {
+    throw new ApiError(
+      409,
+      "Repair partner can be assigned only after the customer accepts the estimate",
+    );
+  }
+
+  const partner = await repairPartnerModel.findById(repairPartner);
+  if (!partner) {
+    throw new ApiError(404, "Repair partner not found");
+  }
+
+  if (!partner.isActive) {
+    throw new ApiError(400, "Repair partner is inactive");
+  }
+
+  if (!partner.specialisations.includes(repairRequest.serviceType)) {
+    throw new ApiError(
+      400,
+      "Repair partner does not support this service type",
+    );
+  }
+
+  repairRequest.repairPartner = partner._id;
+  repairRequest.forwardedAt = new Date();
+  repairRequest.requestStatus = "FORWARDED";
+  await repairRequest.save();
+
+  await repairRequest.populate({
+    path: "repairPartner",
+    select: "name phoneNumber specialisations isActive",
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair partner assigned successfully",
+        repairRequest,
+      ),
+    );
+});
+
+const completeRepairRequestAdmin = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const { adminRemarks } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new ApiError(400, "Invalid request ID");
+  }
+
+  const repairRequest = await repairRequestModel.findById(requestId);
+  if (!repairRequest) {
+    throw new ApiError(404, "Repair request not found");
+  }
+
+  if (repairRequest.requestStatus === "COMPLETED") {
+    throw new ApiError(409, "Repair request is already completed");
+  }
+
+  if (repairRequest.requestStatus !== "FORWARDED") {
+    throw new ApiError(
+      409,
+      "Repair request can be completed only after assigning a repair partner",
+    );
+  }
+
+  repairRequest.requestStatus = "COMPLETED";
+  repairRequest.completedAt = new Date();
+  if (adminRemarks !== undefined) {
+    repairRequest.adminRemarks = adminRemarks;
+  }
+  await repairRequest.save();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair request completed successfully",
+        repairRequest,
+      ),
+    );
+});
+
 //Repair Partner Module
 
-const createRepairPartner = asyncHandler(async(req,res)=>{
-  const {name,phoneNumber,specialisations} = req.body
+const createRepairPartner = asyncHandler(async (req, res) => {
+  const { name, phoneNumber, specialisations } = req.body;
 
   const isExisting = await repairPartnerModel.findOne({
-    phoneNumber
-  })
-
-  if(isExisting){
-    throw new ApiError(409,"Similar user exists with the same mobile number")
-  }
-
-  const normalisedName = name.trim()
-  const repairPartner = await repairPartnerModel.create({
-    name:normalisedName,
     phoneNumber,
-    specialisations
-  })
+  });
 
-  return res.status(201).json(new ApiResponse(201,"New repair partner created successfully",{
-    name:repairPartner.name,
-    phoneNumber:repairPartner.phoneNumber,
-    specialisations:repairPartner.specialisations,
-    isActive:repairPartner.isActive
-  }))
+  if (isExisting) {
+    throw new ApiError(409, "Similar user exists with the same mobile number");
+  }
+
+  const normalisedName = name.trim();
+  const repairPartner = await repairPartnerModel.create({
+    name: normalisedName,
+    phoneNumber,
+    specialisations,
+  });
+
+  return res.status(201).json(
+    new ApiResponse(201, "New repair partner created successfully", {
+      name: repairPartner.name,
+      phoneNumber: repairPartner.phoneNumber,
+      specialisations: repairPartner.specialisations,
+      isActive: repairPartner.isActive,
+    }),
+  );
 });
 
-const getAllRepairPartner = asyncHandler(async(req,res)=>{
-  const repairPartners = await repairPartnerModel.find({
-    isActive:true
-  }).select("name phoneNumber specialisations isActive")
-  if(!repairPartners){
-    throw new ApiError(404,"Repair Partners not found")
+const getAllRepairPartner = asyncHandler(async (req, res) => {
+  const repairPartners = await repairPartnerModel
+    .find({
+      isActive: true,
+    })
+    .select("name phoneNumber specialisations isActive");
+  if (!repairPartners) {
+    throw new ApiError(404, "Repair Partners not found");
   }
 
-  return res.status(200).json(new ApiResponse(200,"Repair partners fetched successfully",repairPartners))
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair partners fetched successfully",
+        repairPartners,
+      ),
+    );
 });
 
-const getOneRepairPartner = asyncHandler(async(req,res)=>{
-  const {partnerId} = req.params
-  if(!mongoose.Types.ObjectId.isValid(partnerId)){
-    throw new ApiError(400,"Invalid Partner Id")
+const getOneRepairPartner = asyncHandler(async (req, res) => {
+  const { partnerId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(partnerId)) {
+    throw new ApiError(400, "Invalid Partner Id");
   }
 
-  const repairPartner = await repairPartnerModel.findById(partnerId).select("name phoneNumber specialisations isActive")
-  if(!repairPartner){
-    throw new ApiError(404,"Repair partner not found ")
+  const repairPartner = await repairPartnerModel
+    .findById(partnerId)
+    .select("name phoneNumber specialisations isActive");
+  if (!repairPartner) {
+    throw new ApiError(404, "Repair partner not found ");
   }
 
-  return res.status(200).json(new ApiResponse(200,"Reapir Partner fethced successfully",repairPartner))
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Reapir Partner fethced successfully",
+        repairPartner,
+      ),
+    );
 });
 
-const updateRepairPartner = asyncHandler(async(req,res)=>{
-  const{partnerId} = req.params
-  if(!partnerId){
-    throw new ApiError(400,"Partner Id not found")
+const updateRepairPartner = asyncHandler(async (req, res) => {
+  const { partnerId } = req.params;
+  if (!partnerId) {
+    throw new ApiError(400, "Partner Id not found");
   }
 
-  const repairPartner = await repairPartnerModel.findById(partnerId)
-  if(!repairPartner){
-    throw new ApiError(404,"Repair partner not found")
+  const repairPartner = await repairPartnerModel.findById(partnerId);
+  if (!repairPartner) {
+    throw new ApiError(404, "Repair partner not found");
   }
-  const allowedFields = ["name","phoneNumber","specialisations"]
+  const allowedFields = ["name", "phoneNumber", "specialisations"];
 
-  allowedFields.forEach((value)=>{
-    if(req.body[value]!==undefined){
-      repairPartner[value]=req.body[value]
+  allowedFields.forEach((value) => {
+    if (req.body[value] !== undefined) {
+      repairPartner[value] = req.body[value];
     }
-  })
+  });
 
-  await repairPartner.save()
+  await repairPartner.save();
 
-  return res.status(200).json(new ApiResponse(200,"Repair Partner updated successfully",repairPartner))
-
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair Partner updated successfully",
+        repairPartner,
+      ),
+    );
 });
 
-const updateRepairPartnerStatus = asyncHandler(async(req,res)=>{
-  const{partnerId} = req.params
-  const repairPartner = await repairPartnerModel.findById(partnerId)
-  if(!repairPartner){
-    throw new ApiError(404,"Repair partner not found")
+const updateRepairPartnerStatus = asyncHandler(async (req, res) => {
+  const { partnerId } = req.params;
+  const repairPartner = await repairPartnerModel.findById(partnerId);
+  if (!repairPartner) {
+    throw new ApiError(404, "Repair partner not found");
   }
 
-  repairPartner.isActive = !repairPartner.isActive
-  await repairPartner.save()
+  repairPartner.isActive = !repairPartner.isActive;
+  await repairPartner.save();
 
-  return res.status(200).json(new ApiResponse(200,"Repair Partner status upadted successfully",repairPartner.isActive))
-})
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Repair Partner status upadted successfully",
+        repairPartner.isActive,
+      ),
+    );
+});
 
 export default {
   viewAdminDashboard,
@@ -2169,9 +2558,14 @@ export default {
   getMarketPlaceOrderByIdAdmin,
   updateMarketPlaceOrderStatusAdmin,
   assignMarketPlaceDeliveryPartnerAdmin,
+  getAllRepairRequestsAdmin,
+  getRepairRequestByIdAdmin,
+  sendRepairRequestEstimateAdmin,
+  assignRepairPartnerAdmin,
+  completeRepairRequestAdmin,
   createRepairPartner,
   getAllRepairPartner,
   getOneRepairPartner,
   updateRepairPartner,
-  updateRepairPartnerStatus
+  updateRepairPartnerStatus,
 };

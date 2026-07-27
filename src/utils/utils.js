@@ -184,10 +184,31 @@ const generateForgotPasswordHTML = (otp) => {
 
 const genereateWelcomeHtml = generateWelcomeHTML;
 
+const generateRepairRequestEstimateHTML = (repairRequest,estimatedPrice,adminRemarks) => {
+  return (
+    `
+    Hi ${repairRequest.user.username},
+
+Your repair request ${repairRequest.requestNumber} has an estimated price of Rs. ${estimatedPrice}.
+
+${adminRemarks ? `Admin remarks: ${adminRemarks}` : ""}
+
+Please open Campus Out to accept or reject this estimate.
+
+Team Campus Out`,
+    `<p>Hi ${repairRequest.user.username},</p>
+<p>Your repair request <strong>${repairRequest.requestNumber}</strong> has an estimated price of <strong>Rs. ${estimatedPrice}</strong>.</p>
+${adminRemarks ? `<p><strong>Admin remarks:</strong> ${adminRemarks}</p>` : ""}
+<p>Please open Campus Out to accept or reject this estimate.</p>
+<p>Team Campus Out</p>`
+  );
+};
+
 export {
   generateOTP,
   generateOtpHTML,
   generateWelcomeHTML,
   generateForgotPasswordHTML,
   genereateWelcomeHtml,
+  generateRepairRequestEstimateHTML
 };

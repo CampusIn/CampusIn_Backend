@@ -14,7 +14,7 @@ import homePageRouter from "./routes/homepageCMS.routes.js";
 import marketRouter from "./routes/marketPlace.routes.js";
 import marketCartRouter from "./routes/marketCart.routes.js";
 import marketPlaceOrdersRouter from "./routes/marketPlace.Orders.routes.js";
-import  {serverAdapter} from "./dashboard/bullBoard.js";
+import { serverAdapter } from "./dashboard/bullBoard.js";
 import ApiError from "./utils/apiErrors.js";
 import passport from "./config/passport.js";
 import cors from "cors";
@@ -47,10 +47,7 @@ app.use(
   }),
 );
 
-app.use(
-  "/admin/queues",
-  serverAdapter.getRouter()
-)
+app.use("/admin/queues", serverAdapter.getRouter());
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -73,13 +70,14 @@ app.use("/api/user", cartRouter);
 app.use("/api/user", orderRouter);
 app.use("/api/user", reviewRoute);
 app.use("/api/admin", adminRouter);
+app.use("/admin", adminRouter);
 app.use("/api/delivery", deliveryRouter);
 app.use("/api/vendor", vendorRouter);
 app.use("/api/user/homepage", homePageRouter);
 app.use("/api/marketplace", marketRouter);
 app.use("/api/marketplace", marketCartRouter);
 app.use("/api/marketplace", marketPlaceOrdersRouter);
-app.use("/api/repair-requests",repairRouter)
+app.use("/api/repair-requests", repairRouter);
 
 app.use((req, res) => {
   return res.status(404).json({
