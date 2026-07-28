@@ -13,6 +13,7 @@ import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import mongoose from "mongoose";
 import { REDIS_KEYS } from "../constants/redis.constants.js";
+import { assertAllowedEmailDomain } from "../utils/emailDomainWhitelist.utils.js";
 
 const refreshTokenCookieOptions = {
   httpOnly: true,
@@ -46,6 +47,8 @@ const register = asyncHandler(async (req, res) => {
   if (!username || !email || !password) {
     throw new ApiError(400, "Username, email and password are required");
   }
+
+  assertAllowedEmailDomain(normalizedEmail);
 
   const isUserExists = await userModel.findOne({
     $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
@@ -94,6 +97,8 @@ const login = asyncHandler(async (req, res) => {
   if (!email || !password) {
     throw new ApiError(400, "Email and password are required");
   }
+
+  assertAllowedEmailDomain(normalizedEmail);
 
   const user = await userModel.findOne({
     email: normalizedEmail,
