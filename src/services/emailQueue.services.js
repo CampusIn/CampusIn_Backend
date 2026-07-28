@@ -47,4 +47,50 @@ const queueForgotEmail = async({to,subject,text,forgotHtml})=>{
     delay:0
   })
 }
-export default { queueOTPEmail, queueWelcomeEmail, queueForgotEmail };
+
+const queueRepairRequestEstimateEmail = async ({
+  to,
+  subject,
+  text,
+  estimateHtml,
+}) => {
+  return emailQueue.add(
+    REDIS_KEYS.REPAIR_REQUEST_ESTIMATE,
+    {
+      to,
+      subject,
+      text,
+      estimateHtml,
+    },
+    {
+      jobId: `estimate-${to}-${Date.now()}`,
+      removeOnComplete: true,
+      delay: 0,
+    },
+  );
+};
+
+const queueReminderEmail = async ({ to, subject, text, reminderHtml }) => {
+  return emailQueue.add(
+    REDIS_KEYS.REMINDER,
+    {
+      to,
+      subject,
+      text,
+      reminderHtml,
+    },
+    {
+      jobId: `rem-${to}-${Date.now()}`,
+      removeOnComplete: true,
+      delay: 0,
+    },
+  );
+};
+
+export default {
+  queueOTPEmail,
+  queueWelcomeEmail,
+  queueForgotEmail,
+  queueRepairRequestEstimateEmail,
+  queueReminderEmail,
+};
