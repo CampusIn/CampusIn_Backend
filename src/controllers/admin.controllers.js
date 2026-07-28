@@ -2146,7 +2146,7 @@ const getAllRepairRequestsAdmin = asyncHandler(async (req, res) => {
       .find(filter)
       .sort({ createdAt: -1 })
       .select(
-        "_id requestNumber serviceType customerPhone pickupLocation estimatedPrice requestStatus repairPartner createdAt updatedAt",
+        "_id requestNumber user serviceType customerPhone pickupLocation estimatedPrice requestStatus repairPartner createdAt updatedAt",
       )
       .populate({
         path: "user",
@@ -2244,7 +2244,11 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Repair request not found");
   }
 
-  if (!["SUBMITTED", "PRICE_SENT"].includes(repairRequest.requestStatus)) {
+  if (
+    !["SUBMITTED", "FORWARDED", "PRICE_SENT"].includes(
+      repairRequest.requestStatus,
+    )
+  ) {
     throw new ApiError(
       409,
       `Estimate cannot be sent when request status is ${repairRequest.requestStatus}`,
@@ -2265,11 +2269,12 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
     await sendEmail(
       repairRequest.user.email,
       `Repair estimate for ${repairRequest.requestNumber}`,
+      "If you are not able to view this email, kindly login to the campusIn portal",
       generateRepairRequestEstimateHTML(
         repairRequest,
         estimatedPrice,
         adminRemarks,
-      ),
+      )
     );
   } catch {
     throw new ApiError(400, "Estimate saved but email could not be sent");
@@ -2293,10 +2298,10 @@ const assignRepairPartnerAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Repair request not found");
   }
 
-  if (repairRequest.requestStatus !== "ACCEPTED") {
+  if (repairRequest.requestStatus !== "SUBMITTED") {
     throw new ApiError(
       409,
-      "Repair partner can be assigned only after the customer accepts the estimate",
+      "Repair partner can be assigned only after the request is submitted",
     );
   }
 
@@ -2354,10 +2359,10 @@ const completeRepairRequestAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Repair request is already completed");
   }
 
-  if (repairRequest.requestStatus !== "FORWARDED") {
+  if (repairRequest.requestStatus !== "ACCEPTED") {
     throw new ApiError(
       409,
-      "Repair request can be completed only after assigning a repair partner",
+      "Repair request can be completed only after the customer accepts the estimate",
     );
   }
 
