@@ -1,26 +1,36 @@
 import Redis from "ioredis";
 import config from "../config/config.js"
 
+const isTestEnvironment = process.env.NODE_ENV === "test" || Boolean(process.env.JEST_WORKER_ID);
+
 const redis = new Redis(config.REDIS_URL,{
     maxRetriesPerRequest: null,
     enableReadyCheck:true,
-    lazyConnect:false
+    lazyConnect: isTestEnvironment
 })
 
 redis.on("connect",()=>{
-    console.log("Redis connected successfully");
+    if (!isTestEnvironment) {
+        console.log("Redis connected successfully");
+    }
 })
 
 redis.on("ready",()=>{
-    console.log("Redis is ready to use");
+    if (!isTestEnvironment) {
+        console.log("Redis is ready to use");
+    }
 })
 
 redis.on("error",(err)=>{
-    console.log("Redis connection error:", err.message);
+    if (!isTestEnvironment) {
+        console.log("Redis connection error:", err.message);
+    }
 })
 
 redis.on("close",()=>{
-    console.log("Redis connection closed");
+    if (!isTestEnvironment) {
+        console.log("Redis connection closed");
+    }
 })
 
 export {redis};
