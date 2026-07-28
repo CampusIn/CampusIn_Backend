@@ -13,7 +13,7 @@ process.env.JWT_SECRET ||= "test-jwt-secret";
 process.env.CLIENT_ID ||= "test-client-id";
 process.env.CLIENT_SECRET ||= "test-client-secret";
 process.env.GOOGLE_REFRESH_TOKEN ||= "test-google-refresh-token";
-process.env.GOOGLE_USER ||= "test-google-user@example.com";
+process.env.GOOGLE_USER ||= "test-google-user@gmail.com";
 process.env.CLOUDINARY_API_KEY ||= "test-cloudinary-api-key";
 process.env.CLOUDINARY_API_SECRET ||= "test-cloudinary-api-secret";
 process.env.CLOUDINARY_NAME ||= "test-cloudinary-name";
@@ -102,7 +102,7 @@ const buildRefreshToken = (user, overrides = {}) =>
 
 const createUser = async ({
   username = "testuser",
-  email = "test@example.com",
+  email = "test@gmail.com",
   password = "password123",
   verified = true,
   role = "user",
@@ -241,7 +241,7 @@ describe("auth controller routes", () => {
       // Arrange
       const payload = {
         username: "  Alice  ",
-        email: "  ALICE@example.COM  ",
+        email: "  ALICE@gmail.COM  ",
         password: "password123",
       };
 
@@ -258,12 +258,12 @@ describe("auth controller routes", () => {
         message: "User registered successfully. Please verify your email",
         data: {
           username: "Alice",
-          email: "alice@example.com",
+          email: "alice@gmail.com",
           verified: false,
         },
       });
 
-      const user = await userModel.findOne({ email: "alice@example.com" });
+      const user = await userModel.findOne({ email: "alice@gmail.com" });
       expect(user).toBeTruthy();
       expect(user.role).toBe("user");
       expect(user.password).not.toBe(payload.password);
@@ -271,12 +271,12 @@ describe("auth controller routes", () => {
         true,
       );
       expect(otpServicesMock.storeOTP).toHaveBeenCalledWith(
-        "alice@example.com",
+        "alice@gmail.com",
         expect.stringMatching(/^\d{6}$/),
       );
       expect(emailServicesMock.queueOTPEmail).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "alice@example.com",
+          to: "alice@gmail.com",
           subject: "Your OTP for CampusIn registration",
         }),
       );
@@ -286,12 +286,12 @@ describe("auth controller routes", () => {
       // Arrange
       const vendorPayload = {
         username: "vendorone",
-        email: "vendor@example.com",
+        email: "vendor@gmail.com",
         password: "password123",
       };
       const deliveryPayload = {
         username: "deliveryone",
-        email: "delivery@example.com",
+        email: "delivery@gmail.com",
         password: "password123",
       };
 
@@ -340,18 +340,39 @@ describe("auth controller routes", () => {
       await expect(userModel.countDocuments()).resolves.toBe(0);
     });
 
+    it("rejects registration from non-whitelisted email domains", async () => {
+      // Arrange
+      const payload = {
+        username: "unknown",
+        email: "unknown@yahoo.com",
+        password: "password123",
+      };
+
+      // Act
+      const response = await request(app)
+        .post("/api/auth/user/register")
+        .send(payload);
+
+      // Assert
+      expect(response.status).toBe(403);
+      expect(response.body.message).toContain("@gmail.com");
+      expect(response.body.message).toContain("@nitj.ac.in");
+      await expect(userModel.countDocuments()).resolves.toBe(0);
+      expect(emailServicesMock.queueOTPEmail).not.toHaveBeenCalled();
+    });
+
     it("rejects duplicate email or username registration", async () => {
       // Arrange
       await createUser({
         username: "existing",
-        email: "existing@example.com",
+        email: "existing@gmail.com",
         verified: false,
       });
 
       // Act
       const response = await request(app).post("/api/auth/user/register").send({
         username: "newuser",
-        email: "existing@example.com",
+        email: "existing@gmail.com",
         password: "password123",
       });
 
@@ -365,12 +386,12 @@ describe("auth controller routes", () => {
       // Arrange
       const adminPayload = {
         username: "adminnew",
-        email: "adminnew@example.com",
+        email: "adminnew@gmail.com",
         password: "password123",
       };
       const normalUser = await createUser({
         username: "normal",
-        email: "normal@example.com",
+        email: "normal@gmail.com",
         role: "user",
       });
       const userToken = buildAccessToken(normalUser);
@@ -400,7 +421,7 @@ describe("auth controller routes", () => {
       // Act
       const response = await request(app).post("/api/auth/user/register").send({
         username: "dbfail",
-        email: "dbfail@example.com",
+        email: "dbfail@gmail.com",
         password: "password123",
       });
 
@@ -415,7 +436,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "loginuser",
-        email: "login@example.com",
+        email: "login@gmail.com",
         password: "password123",
       });
 
@@ -423,7 +444,7 @@ describe("auth controller routes", () => {
       const response = await request(app)
         .post("/api/auth/user/login")
         .set("User-Agent", "jest-agent")
-        .send({ email: " LOGIN@example.com ", password: "password123" });
+        .send({ email: " LOGIN@gmail.com ", password: "password123" });
 
       // Assert
       expect(response.status).toBe(200);
@@ -447,7 +468,7 @@ describe("auth controller routes", () => {
 
     it("rejects missing fields before hitting the database", async () => {
       // Arrange
-      const payload = { email: "login@example.com" };
+      const payload = { email: "login@gmail.com" };
 
       // Act
       const response = await request(app)
@@ -460,22 +481,35 @@ describe("auth controller routes", () => {
       await expect(sessionModel.countDocuments()).resolves.toBe(0);
     });
 
+    it("rejects login from non-whitelisted email domains", async () => {
+      // Act
+      const response = await request(app)
+        .post("/api/auth/vendor/login")
+        .send({ email: "vendor@yahoo.com", password: "password123" });
+
+      // Assert
+      expect(response.status).toBe(403);
+      expect(response.body.message).toContain("@gmail.com");
+      expect(response.body.message).toContain("@nitj.ac.in");
+      await expect(sessionModel.countDocuments()).resolves.toBe(0);
+    });
+
     it("rejects invalid credentials, unverified users, and Google-only accounts", async () => {
       // Arrange
       await createUser({
         username: "verified",
-        email: "verified@example.com",
+        email: "verified@gmail.com",
         password: "password123",
       });
       await createUser({
         username: "unverified",
-        email: "unverified@example.com",
+        email: "unverified@gmail.com",
         password: "password123",
         verified: false,
       });
       await createUser({
         username: "googleuser",
-        email: "google@example.com",
+        email: "google@gmail.com",
         password: null,
         authProvider: "google",
         googleId: "google-id",
@@ -484,13 +518,13 @@ describe("auth controller routes", () => {
       // Act
       const wrongPassword = await request(app)
         .post("/api/auth/user/login")
-        .send({ email: "verified@example.com", password: "wrongpass" });
+        .send({ email: "verified@gmail.com", password: "wrongpass" });
       const unverified = await request(app)
         .post("/api/auth/user/login")
-        .send({ email: "unverified@example.com", password: "password123" });
+        .send({ email: "unverified@gmail.com", password: "password123" });
       const googleOnly = await request(app)
         .post("/api/auth/user/login")
-        .send({ email: "google@example.com", password: "password123" });
+        .send({ email: "google@gmail.com", password: "password123" });
 
       // Assert
       expect(wrongPassword.status).toBe(400);
@@ -507,7 +541,7 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "notvendor",
-        email: "notvendor@example.com",
+        email: "notvendor@gmail.com",
         password: "password123",
         role: "user",
       });
@@ -515,7 +549,7 @@ describe("auth controller routes", () => {
       // Act
       const response = await request(app)
         .post("/api/auth/vendor/login")
-        .send({ email: "notvendor@example.com", password: "password123" });
+        .send({ email: "notvendor@gmail.com", password: "password123" });
 
       // Assert
       expect(response.status).toBe(400);
@@ -526,7 +560,7 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "sessionfail",
-        email: "sessionfail@example.com",
+        email: "sessionfail@gmail.com",
         password: "password123",
       });
       jest
@@ -536,7 +570,7 @@ describe("auth controller routes", () => {
       // Act
       const response = await request(app)
         .post("/api/auth/user/login")
-        .send({ email: "sessionfail@example.com", password: "password123" });
+        .send({ email: "sessionfail@gmail.com", password: "password123" });
 
       // Assert
       expect(response.status).toBe(500);
@@ -549,7 +583,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "verifyuser",
-        email: "verify@example.com",
+        email: "verify@gmail.com",
         verified: false,
       });
 
@@ -557,23 +591,23 @@ describe("auth controller routes", () => {
       const response = await request(app)
         .post("/api/auth/user/verify-email")
         .set("User-Agent", "jest-agent")
-        .send({ email: " verify@example.com ", otp: "123456" });
+        .send({ email: " verify@gmail.com ", otp: "123456" });
 
       // Assert
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Email verified successfully");
       expect(response.body.data.user).toMatchObject({
         username: "verifyuser",
-        email: "verify@example.com",
+        email: "verify@gmail.com",
         verified: true,
       });
       expect(response.body.data.accessToken).toEqual(expect.any(String));
       expect(otpServicesMock.verifyOTP).toHaveBeenCalledWith(
-        "verify@example.com",
+        "verify@gmail.com",
         "123456",
       );
       expect(emailServicesMock.queueWelcomeEmail).toHaveBeenCalledWith(
-        expect.objectContaining({ to: "verify@example.com" }),
+        expect.objectContaining({ to: "verify@gmail.com" }),
       );
       await expect(userModel.findById(user._id).lean()).resolves.toMatchObject({
         verified: true,
@@ -587,7 +621,7 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "vendorverify",
-        email: "vendorverify@example.com",
+        email: "vendorverify@gmail.com",
         verified: false,
         role: "vendor",
       });
@@ -596,10 +630,10 @@ describe("auth controller routes", () => {
       // Act
       const invalidOtp = await request(app)
         .post("/api/auth/vendor/verify-email")
-        .send({ email: "vendorverify@example.com", otp: "000000" });
+        .send({ email: "vendorverify@gmail.com", otp: "000000" });
       const wrongRole = await request(app)
         .post("/api/auth/user/verify-email")
-        .send({ email: "vendorverify@example.com", otp: "123456" });
+        .send({ email: "vendorverify@gmail.com", otp: "123456" });
 
       // Assert
       expect(invalidOtp.status).toBe(400);
@@ -629,28 +663,28 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "resenduser",
-        email: "resend@example.com",
+        email: "resend@gmail.com",
         verified: false,
       });
 
       // Act
       const response = await request(app)
         .post("/api/auth/user/resend-otp")
-        .send({ email: "resend@example.com" });
+        .send({ email: "resend@gmail.com" });
 
       // Assert
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("OTP resent successfully");
       expect(redisServicesMock.exists).toHaveBeenCalledWith(
-        "cooldown:resend@example.com",
+        "cooldown:resend@gmail.com",
       );
       expect(redisServicesMock.set).toHaveBeenCalledWith(
-        "cooldown:resend@example.com",
+        "cooldown:resend@gmail.com",
         "1",
         60,
       );
       expect(otpServicesMock.storeOTP).toHaveBeenCalledWith(
-        "resend@example.com",
+        "resend@gmail.com",
         expect.stringMatching(/^\d{6}$/),
       );
       expect(emailServicesMock.queueOTPEmail).toHaveBeenCalled();
@@ -660,17 +694,17 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "alreadyverified",
-        email: "already@example.com",
+        email: "already@gmail.com",
         verified: true,
       });
 
       // Act
       const unknown = await request(app)
         .post("/api/auth/user/resend-otp")
-        .send({ email: "missing@example.com" });
+        .send({ email: "missing@gmail.com" });
       const verified = await request(app)
         .post("/api/auth/user/resend-otp")
-        .send({ email: "already@example.com" });
+        .send({ email: "already@gmail.com" });
 
       // Assert
       expect(unknown.status).toBe(200);
@@ -685,7 +719,7 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "cooldown",
-        email: "cooldown@example.com",
+        email: "cooldown@gmail.com",
         verified: false,
       });
       redisServicesMock.exists.mockResolvedValueOnce(true);
@@ -693,7 +727,7 @@ describe("auth controller routes", () => {
       // Act
       const response = await request(app)
         .post("/api/auth/user/resend-otp")
-        .send({ email: "cooldown@example.com" });
+        .send({ email: "cooldown@gmail.com" });
 
       // Assert
       expect(response.status).toBe(429);
@@ -709,7 +743,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "refreshuser",
-        email: "refresh@example.com",
+        email: "refresh@gmail.com",
       });
       const oldRefreshToken = buildRefreshToken(user, { nonce: "old-token" });
       const session = await createSession(user, oldRefreshToken);
@@ -736,11 +770,11 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "refreshcases",
-        email: "refreshcases@example.com",
+        email: "refreshcases@gmail.com",
       });
       const vendor = await createUser({
         username: "refreshvendor",
-        email: "refreshvendor@example.com",
+        email: "refreshvendor@gmail.com",
         role: "vendor",
       });
       const validButNoSession = buildRefreshToken(user);
@@ -748,7 +782,7 @@ describe("auth controller routes", () => {
       const wrongRoleToken = buildRefreshToken(vendor);
       const deletedUser = await createUser({
         username: "deleted",
-        email: "deleted@example.com",
+        email: "deleted@gmail.com",
       });
       const deletedUserToken = buildRefreshToken(deletedUser);
       await createSession(user, revokedToken, { revoked: true });
@@ -796,7 +830,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "logoutuser",
-        email: "logout@example.com",
+        email: "logout@gmail.com",
       });
       const refreshToken = buildRefreshToken(user);
       const session = await createSession(user, refreshToken);
@@ -833,7 +867,7 @@ describe("auth controller routes", () => {
       // Arrange
       const vendor = await createUser({
         username: "logoutvendor",
-        email: "logoutvendor@example.com",
+        email: "logoutvendor@gmail.com",
         role: "vendor",
       });
       const refreshToken = buildRefreshToken(vendor);
@@ -854,7 +888,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "logoutall",
-        email: "logoutall@example.com",
+        email: "logoutall@gmail.com",
       });
       const firstToken = buildRefreshToken(user, { nonce: "one" });
       const secondToken = buildRefreshToken(user, { nonce: "two" });
@@ -879,13 +913,13 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "forgotuser",
-        email: "forgot@example.com",
+        email: "forgot@gmail.com",
       });
 
       // Act
       const response = await request(app)
         .post("/api/auth/user/forgot-password")
-        .send({ email: "forgot@example.com" });
+        .send({ email: "forgot@gmail.com" });
 
       // Assert
       expect(response.status).toBe(200);
@@ -893,11 +927,11 @@ describe("auth controller routes", () => {
         "If an account exists with this email, an OTP has been sent.",
       );
       expect(otpServicesMock.storeOTP).toHaveBeenCalledWith(
-        "forgot@example.com",
+        "forgot@gmail.com",
         expect.stringMatching(/^\d{6}$/),
       );
       expect(emailServicesMock.queueForgotEmail).toHaveBeenCalledWith(
-        expect.objectContaining({ to: "forgot@example.com" }),
+        expect.objectContaining({ to: "forgot@gmail.com" }),
       );
     });
 
@@ -905,17 +939,17 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "forgotunverified",
-        email: "forgotunverified@example.com",
+        email: "forgotunverified@gmail.com",
         verified: false,
       });
 
       // Act
       const unknown = await request(app)
         .post("/api/auth/user/forgot-password")
-        .send({ email: "unknown@example.com" });
+        .send({ email: "unknown@gmail.com" });
       const unverified = await request(app)
         .post("/api/auth/user/forgot-password")
-        .send({ email: "forgotunverified@example.com" });
+        .send({ email: "forgotunverified@gmail.com" });
 
       // Assert
       expect(unknown.status).toBe(200);
@@ -927,13 +961,13 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "resetotp",
-        email: "resetotp@example.com",
+        email: "resetotp@gmail.com",
       });
 
       // Act
       const response = await request(app)
         .post("/api/auth/user/verify-reset-otp")
-        .send({ email: "resetotp@example.com", otp: "654321" });
+        .send({ email: "resetotp@gmail.com", otp: "654321" });
 
       // Assert
       expect(response.status).toBe(200);
@@ -950,17 +984,17 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "badresetotp",
-        email: "badresetotp@example.com",
+        email: "badresetotp@gmail.com",
       });
       otpServicesMock.verifyOTP.mockResolvedValueOnce(false);
 
       // Act
       const invalidOtp = await request(app)
         .post("/api/auth/user/verify-reset-otp")
-        .send({ email: "badresetotp@example.com", otp: "123456" });
+        .send({ email: "badresetotp@gmail.com", otp: "123456" });
       const unknownEmail = await request(app)
         .post("/api/auth/user/verify-reset-otp")
-        .send({ email: "unknown@example.com", otp: "123456" });
+        .send({ email: "unknown@gmail.com", otp: "123456" });
 
       // Assert
       expect(invalidOtp.status).toBe(400);
@@ -973,7 +1007,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "resetuser",
-        email: "reset@example.com",
+        email: "reset@gmail.com",
         password: "oldpass123",
       });
       const refreshToken = buildRefreshToken(user);
@@ -987,11 +1021,11 @@ describe("auth controller routes", () => {
       const oldPasswordLogin = await request(app)
         .post("/api/auth/user/login")
         .set("User-Agent", "jest-agent")
-        .send({ email: "reset@example.com", password: "oldpass123" });
+        .send({ email: "reset@gmail.com", password: "oldpass123" });
       const newPasswordLogin = await request(app)
         .post("/api/auth/user/login")
         .set("User-Agent", "jest-agent")
-        .send({ email: "reset@example.com", password: "newpass123" });
+        .send({ email: "reset@gmail.com", password: "newpass123" });
 
       // Assert
       expect(response.status).toBe(200);
@@ -1015,7 +1049,7 @@ describe("auth controller routes", () => {
       // Arrange
       const deletedUser = await createUser({
         username: "deletedreset",
-        email: "deletedreset@example.com",
+        email: "deletedreset@gmail.com",
       });
       const deletedUserId = deletedUser._id.toString();
       await userModel.findByIdAndDelete(deletedUser._id);
@@ -1049,7 +1083,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "profileuser",
-        email: "profile@example.com",
+        email: "profile@gmail.com",
         role: "vendor",
       });
       const token = buildAccessToken(user);
@@ -1065,7 +1099,7 @@ describe("auth controller routes", () => {
       expect(response.body.data).toMatchObject({
         id: user._id.toString(),
         username: "profileuser",
-        email: "profile@example.com",
+        email: "profile@gmail.com",
         role: "vendor",
       });
     });
@@ -1074,7 +1108,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "authcases",
-        email: "authcases@example.com",
+        email: "authcases@gmail.com",
       });
       const expiredToken = jwt.sign(
         { id: user._id.toString(), role: user.role },
@@ -1111,7 +1145,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "oldname",
-        email: "oldname@example.com",
+        email: "oldname@gmail.com",
       });
       const token = buildAccessToken(user);
 
@@ -1134,11 +1168,11 @@ describe("auth controller routes", () => {
       // Arrange
       await createUser({
         username: "taken",
-        email: "taken@example.com",
+        email: "taken@gmail.com",
       });
       const user = await createUser({
         username: "updater",
-        email: "updater@example.com",
+        email: "updater@gmail.com",
       });
       const token = buildAccessToken(user);
 
@@ -1157,7 +1191,7 @@ describe("auth controller routes", () => {
       // Arrange
       const user = await createUser({
         username: "profiledbfail",
-        email: "profiledbfail@example.com",
+        email: "profiledbfail@gmail.com",
       });
       const token = buildAccessToken(user);
       jest
@@ -1191,7 +1225,7 @@ describe("auth controller routes", () => {
       const req = {
         user: await createUser({
           username: "googlelogin",
-          email: "googlelogin@example.com",
+          email: "googlelogin@gmail.com",
         }),
         ip: "::ffff:127.0.0.1",
         headers: { "user-agent": "jest-agent" },
@@ -1234,20 +1268,20 @@ describe("auth controller routes", () => {
     it("keeps required-field checks inside controller methods", async () => {
       // Arrange & Act
       const registerResult = await invokeController(authControllers.register, {
-        body: { email: "missing@example.com", password: "password123" },
+        body: { email: "missing@gmail.com", password: "password123" },
       });
       const loginResult = await invokeController(authControllers.login, {
-        body: { email: "missing@example.com" },
+        body: { email: "missing@gmail.com" },
       });
       const verifyEmailResult = await invokeController(
         authControllers.verifyEmail,
-        { body: { email: "missing@example.com" } },
+        { body: { email: "missing@gmail.com" } },
       );
       const resendResult = await invokeController(authControllers.resendOTP);
       const forgotResult = await invokeController(authControllers.forgotPassword);
       const missingResetOtpResult = await invokeController(
         authControllers.verifyResetOtp,
-        { body: { email: "missing@example.com" } },
+        { body: { email: "missing@gmail.com" } },
       );
       const missingResetEmailResult = await invokeController(
         authControllers.verifyResetOtp,
