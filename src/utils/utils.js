@@ -184,24 +184,71 @@ const generateForgotPasswordHTML = (otp) => {
 
 const genereateWelcomeHtml = generateWelcomeHTML;
 
-const generateRepairRequestEstimateHTML = (repairRequest,estimatedPrice,adminRemarks) => {
-  return (
-    `
-    Hi ${repairRequest.user.username},
+const generateRepairRequestEstimateHTML = (repairRequest, estimatedPrice, adminRemarks) => {
+  const campusInRed = "#b31522";
 
-Your repair request ${repairRequest.requestNumber} has an estimated price of Rs. ${estimatedPrice}.
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Repair Estimate from CAMPUSIN</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">Repair estimate ready</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">
+                                    Hi ${repairRequest.user.username},
+                                </p>
 
-${adminRemarks ? `Admin remarks: ${adminRemarks}` : ""}
+                                <p style="margin:0 0 18px;">
+                                    Your repair request <strong>${repairRequest.requestNumber}</strong> has been reviewed, and the estimated price is ready.
+                                </p>
 
-Please open Campus Out to accept or reject this estimate.
+                                <p style="margin:0 0 18px; color:${campusInRed}; font-size:34px; line-height:1.25; font-weight:800;">
+                                    Rs. ${estimatedPrice}
+                                </p>
 
-Team Campus Out`,
-    `<p>Hi ${repairRequest.user.username},</p>
-<p>Your repair request <strong>${repairRequest.requestNumber}</strong> has an estimated price of <strong>Rs. ${estimatedPrice}</strong>.</p>
-${adminRemarks ? `<p><strong>Admin remarks:</strong> ${adminRemarks}</p>` : ""}
-<p>Please open Campus Out to accept or reject this estimate.</p>
-<p>Team Campus Out</p>`
-  );
+                                ${
+                                  adminRemarks
+                                    ? `<p style="margin:0 0 22px;"><strong>Admin remarks:</strong> ${adminRemarks}</p>`
+                                    : ""
+                                }
+
+                                <p style="margin:0 0 22px;">
+                                    Please open CampusIn to accept or reject this estimate. We will move ahead only after your confirmation.
+                                </p>
+
+                                <p style="margin:0;">See you soon,</p>
+                                <p style="margin:4px 0 0; color:#202124;"><strong>Team <span style="color:${campusInRed};">CAMPUSIN</span></strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
 };
 
 export {

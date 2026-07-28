@@ -89,7 +89,7 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res) => {
+app.use((err, req, res,next) => {
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
 
   return res.status(statusCode).json({
