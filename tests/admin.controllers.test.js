@@ -29,6 +29,15 @@ const uploadOnCloudinaryMock = jest.fn();
 const generateInvoicePDFMock = jest.fn();
 const generateMarketPlaceInvoicePDFMock = jest.fn();
 const sendEmailMock = jest.fn();
+const emailQueueMock = {
+  queueReminderEmail: jest.fn(async ({ to, subject, text, reminderHtml }) =>
+    sendEmailMock(to, subject, text, reminderHtml),
+  ),
+  queueRepairRequestEstimateEmail: jest.fn(),
+  queueOTPEmail: jest.fn(),
+  queueWelcomeEmail: jest.fn(),
+  queueForgotEmail: jest.fn(),
+};
 const platformSettingsCachedMock = jest.fn();
 const setPlatformSettingsCachedMock = jest.fn();
 const deletePlatformSettingsCachedMock = jest.fn();
@@ -64,6 +73,10 @@ jest.unstable_mockModule("../src/services/marketPlaceInvoice.services.js", () =>
 
 jest.unstable_mockModule("../src/services/email.services.js", () => ({
   sendEmail: sendEmailMock,
+}));
+
+jest.unstable_mockModule("../src/services/emailQueue.services.js", () => ({
+  default: emailQueueMock,
 }));
 
 jest.unstable_mockModule(

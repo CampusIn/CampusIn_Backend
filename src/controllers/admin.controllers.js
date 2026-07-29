@@ -20,7 +20,8 @@ import topRestaurantsPipeline from "../utils/topRestaurant.utils.js";
 import generateInvoicePDF from "../services/invoice.services.js";
 import generateMarketPlaceInvoicePDF from "../services/marketPlaceInvoice.services.js";
 import { sendEmail } from "../services/email.services.js";
-import reminderHTML from "../utils/reminderHTML.utils.js";
+import emailServices from "../services/emailQueue.services.js";
+import {generateReminderHTML} from "../utils/utils.js";
 import config from "../config/config.js";
 import {
   platformSettingsCached,
@@ -1259,10 +1260,10 @@ const sendReminder = asyncHandler(async (req, res) => {
   }
 
   try {
-    await sendEmail(
-      user.email,
-      "Hey Cutie you left something delicious behind!",
-      `Hi Joel,
+    await emailServices.queueReminderEmail({
+      to: user.email,
+      subject: "Hey Cutie you left something delicious behind!",
+      text: `Hi Joel,
 
 You left some delicious items in your CAMPUSIN cart.
 
@@ -1271,10 +1272,10 @@ Complete your order here:
 ${config.CLIENT_ID}/cart
 
 Team CAMPUSIN`,
-      reminderHTML(),
-    );
+      reminderHtml: generateReminderHTML(),
+    });
   } catch (error) {
-    throw new ApiError(400, "Error in sending email");
+    throw new ApiError(400, "Error in queuing email");
   }
 
   return res
@@ -2266,18 +2267,18 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
   await repairRequest.save();
 
   try {
-    await sendEmail(
-      repairRequest.user.email,
-      `Repair estimate for ${repairRequest.requestNumber}`,
-      "If you are not able to view this email, kindly login to the campusIn portal",
-      generateRepairRequestEstimateHTML(
+    await emailServices.queueRepairRequestEstimateEmail({
+      to: repairRequest.user.email,
+      subject: `Repair estimate for ${repairRequest.requestNumber}`,
+      text: "This email is regarding your repair request submitted in CampusIn. If you are not able to view this email, kindly login to the CampusIn portal",
+      estimateHtml: generateRepairRequestEstimateHTML(
         repairRequest,
         estimatedPrice,
         adminRemarks,
-      )
-    );
-  } catch {
-    throw new ApiError(400, "Estimate saved but email could not be sent");
+      ),
+    });
+  } catch (error) {
+    throw new ApiError(400, "Estimate saved but email could not be queued");
   }
 
   return res

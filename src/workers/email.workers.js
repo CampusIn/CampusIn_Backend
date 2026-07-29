@@ -23,6 +23,16 @@ const emailWorker = new Worker(
         await sendEmail(to,subject,text,forgotHtml)
         break;
       }
+      case REDIS_KEYS.REPAIR_REQUEST_ESTIMATE: {
+        const { to, subject, text, estimateHtml } = job.data;
+        await sendEmail(to, subject, text, estimateHtml);
+        break;
+      }
+      case REDIS_KEYS.REMINDER: {
+        const { to, subject, text, reminderHtml } = job.data;
+        await sendEmail(to, subject, text, reminderHtml);
+        break;
+      }
       default:
         throw new Error(`Unknown email job: ${job.name}`);
     }

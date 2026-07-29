@@ -1,3 +1,5 @@
+import config from "../config/config.js";
+
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -251,11 +253,79 @@ const generateRepairRequestEstimateHTML = (repairRequest, estimatedPrice, adminR
     `;
 };
 
+const generateReminderHTML = (userName = "there") => {
+  const campusInRed = "#b31522";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Complete Your CampusIn Order</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">Your cart is waiting</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">
+                                    Hi ${userName},
+                                </p>
+
+                                <p style="margin:0 0 18px;">
+                                    It looks like you left a few items behind in your CampusIn cart.
+                                </p>
+
+                                <p style="margin:0 0 18px;">
+                                    Your items are still saved and ready for checkout whenever you are.
+                                </p>
+
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}/cart" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">
+                                        Complete Your Order
+                                    </a>
+                                </div>
+
+                                <p style="margin:0 0 18px;">
+                                    Need a quick meal between classes? We've got you covered.
+                                </p>
+
+                                <p style="margin:0;">See you soon,</p>
+                                <p style="margin:4px 0 0; color:#202124;"><strong>Team <span style="color:${campusInRed};">CAMPUSIN</span></strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
 export {
   generateOTP,
   generateOtpHTML,
   generateWelcomeHTML,
   generateForgotPasswordHTML,
   genereateWelcomeHtml,
-  generateRepairRequestEstimateHTML
+  generateRepairRequestEstimateHTML,
+  generateReminderHTML,
 };
