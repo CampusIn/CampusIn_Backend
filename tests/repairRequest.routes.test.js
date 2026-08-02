@@ -26,9 +26,24 @@ process.env.REDIS_PASSWORD ||= "test-redis-password";
 process.env.REDIS_URL ||= "redis://localhost:6379";
 
 const uploadOnCloudinaryMock = jest.fn();
+const getUserRepairRequestsCachedMock = jest.fn();
+const setUserRepairRequestsCachedMock = jest.fn();
+const deleteUserRepairRequestsCachedMock = jest.fn();
+const getUserRepairRequestByIdCachedMock = jest.fn();
+const setUserRepairRequestByIdCachedMock = jest.fn();
+const deleteUserRepairRequestByIdCachedMock = jest.fn();
 
 jest.unstable_mockModule("../src/services/cloudinary.services.js", () => ({
   uploadOnCloudinary: uploadOnCloudinaryMock,
+}));
+
+jest.unstable_mockModule("../src/services/repairRequestCached.services.js", () => ({
+  getUserRepairRequestsCached: getUserRepairRequestsCachedMock,
+  setUserRepairRequestsCached: setUserRepairRequestsCachedMock,
+  deleteUserRepairRequestsCached: deleteUserRepairRequestsCachedMock,
+  getUserRepairRequestByIdCached: getUserRepairRequestByIdCachedMock,
+  setUserRepairRequestByIdCached: setUserRepairRequestByIdCachedMock,
+  deleteUserRepairRequestByIdCached: deleteUserRepairRequestByIdCachedMock,
 }));
 
 let app;
@@ -171,6 +186,8 @@ beforeEach(async () => {
   uploadOnCloudinaryMock.mockImplementation(async (localFilePath) =>
     `https://cdn.example.com/${path.basename(localFilePath)}`,
   );
+  getUserRepairRequestsCachedMock.mockResolvedValue(null);
+  getUserRepairRequestByIdCachedMock.mockResolvedValue(null);
 });
 
 afterAll(async () => {
@@ -274,6 +291,9 @@ describe("repair request routes", () => {
         requestStatus: "SUBMITTED",
       });
       expect(savedRequest.damageImages).toHaveLength(2);
+      expect(deleteUserRepairRequestsCachedMock).toHaveBeenCalledWith(
+        user._id.toString(),
+      );
     });
 
     it("returns validation errors for malformed repair request payloads", async () => {
@@ -412,6 +432,50 @@ describe("repair request routes", () => {
       expect(response.body.data.repairRequests[0]._id).not.toBe(
         olderRequest._id.toString(),
       );
+      expect(getUserRepairRequestsCachedMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: user._id.toString(),
+          page: 1,
+          limit: 1,
+        }),
+      );
+      expect(setUserRepairRequestsCachedMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns cached paginated requests when cache exists", async () => {
+      // Arrange
+      const user = await createUser({ username: "list-cache-user" });
+      getUserRepairRequestsCachedMock.mockResolvedValueOnce({
+        repairRequests: [
+          {
+            _id: new mongoose.Types.ObjectId().toString(),
+            requestNumber: "REP-2026-07-9999",
+            serviceType: "MOBILE",
+            estimatedPrice: 300,
+            requestStatus: "PRICE_SENT",
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        pagination: {
+          page: 1,
+          limit: 1,
+          totalPages: 1,
+          totalRequests: 1,
+        },
+      });
+
+      // Act
+      const response = await request(app)
+        .get("/api/repair-requests")
+        .set(authHeader(user))
+        .query({ page: 1, limit: 1 });
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe("Repair requests fetched successfully");
+      expect(response.body.data.repairRequests).toHaveLength(1);
+      expect(setUserRepairRequestsCachedMock).not.toHaveBeenCalled();
+      await expect(repairRequestModel.countDocuments()).resolves.toBe(0);
     });
 
     it("filters requests by status and request number search", async () => {
@@ -539,6 +603,40 @@ describe("repair request routes", () => {
         name: "FixIt Crew",
         phoneNumber: "9998887776",
       });
+      expect(getUserRepairRequestByIdCachedMock).toHaveBeenCalledWith({
+        userId: user._id.toString(),
+        requestId: repairRequest._id.toString(),
+      });
+      expect(setUserRepairRequestByIdCachedMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns cached repair request details when available", async () => {
+      // Arrange
+      const user = await createUser({ username: "detail-cache-user" });
+      const requestId = new mongoose.Types.ObjectId().toString();
+      getUserRepairRequestByIdCachedMock.mockResolvedValueOnce({
+        requestNumber: "REP-2026-07-8080",
+        serviceType: "MOBILE",
+        description: "Cached detail",
+        damageImages: ["https://cdn.example.com/cached.jpg"],
+        pickupLocation: "Hostel 4",
+        customerPhone: "9876543210",
+        estimatedPrice: 800,
+        adminRemarks: "Cached remarks",
+        requestStatus: "PRICE_SENT",
+        repairPartner: null,
+      });
+
+      // Act
+      const response = await request(app)
+        .get(`/api/repair-requests/${requestId}`)
+        .set(authHeader(user));
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe("Repair details fetched successfully");
+      expect(response.body.data.requestNumber).toBe("REP-2026-07-8080");
+      expect(setUserRepairRequestByIdCachedMock).not.toHaveBeenCalled();
     });
 
     it("rejects invalid request ids and missing requests", async () => {
@@ -605,6 +703,13 @@ describe("repair request routes", () => {
         .lean();
       expect(updatedRequest.requestStatus).toBe("ACCEPTED");
       expect(updatedRequest.acceptedAt).toBeTruthy();
+      expect(deleteUserRepairRequestsCachedMock).toHaveBeenCalledWith(
+        user._id.toString(),
+      );
+      expect(deleteUserRepairRequestByIdCachedMock).toHaveBeenCalledWith({
+        userId: user._id.toString(),
+        requestId: repairRequest._id.toString(),
+      });
     });
 
     it("rejects invalid decision payloads", async () => {

@@ -243,6 +243,7 @@ const createOrder = async (user, restaurant, overrides = {}) => {
       gstAmount: 4,
       deliveryCharge: 10,
       packagingCharge: 5,
+      platformCharge: 0,
       couponDiscount: 0,
       finalAmount: 99,
     },
@@ -267,14 +268,31 @@ const createCoupon = async (admin, overrides = {}) =>
   });
 
 const createCategoryRecord = async (admin, overrides = {}) =>
-  categoryModel.create({
-    name: "BOOKS",
-    description: "Study material",
-    image: "https://cdn.example.com/books.jpg",
-    priority: 1,
-    createdBy: admin._id,
-    ...overrides,
-  });
+  {
+    const basePricingSettings = {
+      deliveryCharge: 10,
+      freeDeliveryAbove: 500,
+      minimumOrderValue: 50,
+      gstPercentage: 5,
+      packagingCharge: 2,
+      platformCharge: 3,
+    };
+
+    const { pricingSettings, ...restOverrides } = overrides;
+
+    return categoryModel.create({
+      name: "BOOKS",
+      description: "Study material",
+      image: "https://cdn.example.com/books.jpg",
+      priority: 1,
+      createdBy: admin._id,
+      pricingSettings: {
+        ...basePricingSettings,
+        ...(pricingSettings || {}),
+      },
+      ...restOverrides,
+    });
+  };
 
 const createProduct = async (admin, category, overrides = {}) =>
   productModel.create({
@@ -310,8 +328,17 @@ const createMarketplaceOrder = async (user, category, product, overrides = {}) =
       gstAmount: 6,
       deliveryCharge: 10,
       packagingCharge: 0,
+      platformCharge: 0,
       couponDiscount: 0,
       finalAmount: 136,
+    },
+    pricingSettingsSnapshot: {
+      deliveryCharge: category.pricingSettings?.deliveryCharge ?? 10,
+      freeDeliveryAbove: category.pricingSettings?.freeDeliveryAbove ?? 500,
+      minimumOrderValue: category.pricingSettings?.minimumOrderValue ?? 50,
+      gstPercentage: category.pricingSettings?.gstPercentage ?? 5,
+      packagingCharge: category.pricingSettings?.packagingCharge ?? 2,
+      platformCharge: category.pricingSettings?.platformCharge ?? 3,
     },
     deliveryAddressSnapShot: "Hostel 2",
     customerPhone: "9876543210",
@@ -736,6 +763,7 @@ describe("admin controller routes", () => {
       platformSettingsCachedMock.mockResolvedValueOnce({
         deliveryCharge: 10,
         minimumOrderValue: 50,
+        platformCharge: 5,
       });
 
       // Act
@@ -754,6 +782,7 @@ describe("admin controller routes", () => {
       expect(cachedResponse.body.data).toMatchObject({
         deliveryCharge: 10,
         minimumOrderValue: 50,
+        platformCharge: 5,
       });
     });
 
@@ -770,6 +799,7 @@ describe("admin controller routes", () => {
           deliveryCharge: 20,
           minimumOrderValue: 100,
           freeDeliveryAbove: 500,
+          platformCharge: 7,
         });
 
       // Assert
@@ -779,6 +809,7 @@ describe("admin controller routes", () => {
         deliveryCharge: 20,
         minimumOrderValue: 100,
         freeDeliveryAbove: 500,
+        platformCharge: 7,
       });
       expect(deletePlatformSettingsCachedMock).toHaveBeenCalledTimes(1);
     });
@@ -1127,6 +1158,14 @@ describe("admin controller routes", () => {
         image: "https://cdn.example.com/books.jpg",
         priority: 1,
         createdBy: admin._id,
+        pricingSettings: {
+          deliveryCharge: 10,
+          freeDeliveryAbove: 500,
+          minimumOrderValue: 50,
+          gstPercentage: 5,
+          packagingCharge: 2,
+          platformCharge: 3,
+        },
       });
 
       // Act
@@ -1139,7 +1178,13 @@ describe("admin controller routes", () => {
       const updateResponse = await request(app)
         .patch(`/api/admin/marketplace/categories/${category._id}`)
         .set(authHeader(admin))
-        .send({ name: "Stationery", priority: 4 });
+        .send({
+          name: "Stationery",
+          priority: 4,
+          deliveryCharge: 25,
+          minimumOrderValue: 120,
+          freeDeliveryAbove: 700,
+        });
       const statusResponse = await request(app)
         .patch(`/api/admin/marketPlace/categories/${category._id}/status`)
         .set(authHeader(admin));
@@ -1149,10 +1194,19 @@ describe("admin controller routes", () => {
       expect(listResponse.body.data.categories).toHaveLength(1);
       expect(detailResponse.status).toBe(200);
       expect(detailResponse.body.data.name).toBe("BOOKS");
+      expect(detailResponse.body.data.pricingSettings).toMatchObject({
+        deliveryCharge: 10,
+        minimumOrderValue: 50,
+      });
       expect(updateResponse.status).toBe(200);
       expect(updateResponse.body.data).toMatchObject({
         name: "STATIONERY",
         priority: 4,
+      });
+      expect(updateResponse.body.data.pricingSettings).toMatchObject({
+        deliveryCharge: 25,
+        minimumOrderValue: 120,
+        freeDeliveryAbove: 700,
       });
       expect(statusResponse.status).toBe(200);
       expect(statusResponse.body.data.status).toBe(false);
@@ -1180,6 +1234,10 @@ describe("admin controller routes", () => {
         .patch(`/api/admin/marketplace/categories/${category._id}`)
         .set(authHeader(admin))
         .send({ name: "games" });
+      const inconsistentPricing = await request(app)
+        .patch(`/api/admin/marketplace/categories/${category._id}`)
+        .set(authHeader(admin))
+        .send({ minimumOrderValue: 800, freeDeliveryAbove: 200 });
 
       // Assert
       expect(invalidList.status).toBe(400);
@@ -1192,6 +1250,10 @@ describe("admin controller routes", () => {
       expect(missingDetail.body.message).toBe("Category not found");
       expect(duplicateUpdate.status).toBe(409);
       expect(duplicateUpdate.body.message).toBe(" Category name already exists");
+      expect(inconsistentPricing.status).toBe(400);
+      expect(inconsistentPricing.body.message).toBe(
+        "Minimum order value cannot be above free delivery order value",
+      );
     });
 
     it("creates, lists, updates, and toggles repair partners", async () => {

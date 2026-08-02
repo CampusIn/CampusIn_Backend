@@ -22,6 +22,13 @@ marketRouter.get(
 );
 
 marketRouter.get(
+  "/products/suggestions",
+  authMiddleware,
+  roleMiddleware("user"),
+  marketPlaceController.getMarketPlaceProductSuggestions,
+);
+
+marketRouter.get(
   "/products/:productId",
   authMiddleware,
   roleMiddleware("user"),

@@ -15,6 +15,11 @@ import emailServices from "../services/emailQueue.services.js";
 import { generateVendorNewOrderHTML } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
 import { getCouponCached, setCouponCached, deleteCouponCached } from "../services/couponCached.services.js";
+import {
+  getOrderHistoryCached,
+  setOrderHistoryCached,
+  deleteOrderHistoryCached,
+} from "../services/orderHistoryCached.services.js";
 
 
 const validateCartItems = (cartItems) => {
@@ -194,6 +199,7 @@ const createOrder = asyncHandler(async (req, res) => {
   const gstAmount = Math.round((pricingBase * gstPercentage) / 100);
   let deliveryCharge = platformSettings.deliveryCharge;
   const packagingCharge = platformSettings.packagingCharge;
+  const platformCharge = platformSettings.platformCharge || 0;
   const freeDeliveryAbove = platformSettings.freeDeliveryAbove;
 
   if (freeDeliveryAbove <= pricingBase) {
@@ -201,7 +207,7 @@ const createOrder = asyncHandler(async (req, res) => {
   }
 
   const finalAmount =
-    pricingBase + gstAmount + deliveryCharge + packagingCharge;
+    pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
   const session = await mongoose.startSession();
   let order;
@@ -225,6 +231,7 @@ const createOrder = asyncHandler(async (req, res) => {
             gstAmount,
             deliveryCharge,
             packagingCharge,
+            platformCharge,
             couponDiscount,
             finalAmount,
           },
@@ -273,6 +280,8 @@ const createOrder = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
+  await deleteOrderHistoryCached(req.user.id);
+
   try {
     const vendorUser = await userModel
       .findById(restaurant.owner)
@@ -311,14 +320,30 @@ const getAllOrders = asyncHandler(async (req, res) => {
   if (pageNumber < 1 || limitNumber < 1) {
     throw new ApiError(404, "Invalid page number or limit number");
   }
+
+  const cacheParams = {
+    userId: req.user.id,
+    page: pageNumber,
+    limit: limitNumber,
+  };
+  const cachedData = await getOrderHistoryCached(cacheParams);
+  if (cachedData) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Order history fetched successfuly", cachedData));
+  }
+
   const skip = (pageNumber - 1) * limitNumber;
   const totalOrders = await orderModel.countDocuments({ user: req.user.id });
   if (totalOrders === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-      }),
-    );
+    const responseData = {
+      orders: [],
+    };
+    await setOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
   }
   const orders = await orderModel
     .find(
@@ -331,29 +356,36 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(totalOrders / limitNumber);
   if (orders.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-        pagination: {
-          page: pageNumber,
-          limit: limitNumber,
-          totalOrders,
-          totalPages,
-        },
-      }),
-    );
-  }
-
-  return res.status(200).json(
-    new ApiResponse(200, "Order history fetched successfuly", {
-      orders,
+    const responseData = {
+      orders: [],
       pagination: {
         page: pageNumber,
         limit: limitNumber,
         totalOrders,
         totalPages,
       },
-    }),
+    };
+    await setOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
+  }
+
+  const responseData = {
+    orders,
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      totalOrders,
+      totalPages,
+    },
+  };
+
+  await setOrderHistoryCached(cacheParams, responseData);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Order history fetched successfuly", responseData),
   );
 });
 
@@ -414,6 +446,8 @@ const cancelOrder = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  await deleteOrderHistoryCached(req.user.id);
 
   return res
     .status(200)
@@ -512,7 +546,7 @@ const getVendorOrder = asyncHandler(async (req, res) => {
 
 const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached()
-  if(cachedSettings){
+  if(cachedSettings && cachedSettings.platformCharge !== undefined){
     return res
     .status(200)
     .json(new ApiResponse(200, "Order details fetched successfuly", cachedSettings));
@@ -525,9 +559,10 @@ const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
   if (!platformSettings) {
     throw new ApiError(404, 'Platform settings not found')
   }
-  await setPlatformSettingsCached(platformSettings)
+  const plainSettings = platformSettings.toObject()
+  await setPlatformSettingsCached(plainSettings)
 
-  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', platformSettings))
+  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', plainSettings))
 });
 
 const getSingleVendorOrder = asyncHandler(async (req, res) => {
@@ -589,10 +624,16 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new ApiError(400, "Inavlid Order Id");
   }
-  const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "DELIVERED", "REJECTED"];
+  const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "REJECTED"];
 
   const isValidStatus = allowedStatus.includes(orderStatus);
   if (!isValidStatus) {
+    if (orderStatus === "DELIVERED") {
+      throw new ApiError(
+        403,
+        "Only delivery partner can mark order as DELIVERED",
+      );
+    }
     throw new ApiError(400, "Invalid Order status");
   }
 
@@ -638,6 +679,8 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  await deleteOrderHistoryCached(order.user.toString());
 
   return res.status(200).json(
     new ApiResponse(200, "Order status updated successfuly", {
@@ -759,6 +802,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   const gstAmount = Math.round((subTotalAfterDiscount * gstPercentage) / 100);
   let deliveryCharge = platformSettings.deliveryCharge;
   const packagingCharge = platformSettings.packagingCharge;
+  const platformCharge = platformSettings.platformCharge || 0;
   const freeDeliveryAbove = platformSettings.freeDeliveryAbove;
 
   if (freeDeliveryAbove <= subTotalAfterDiscount) {
@@ -766,7 +810,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   }
 
   const finalAmount =
-    subTotalAfterDiscount + gstAmount + deliveryCharge + packagingCharge;
+    subTotalAfterDiscount + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
   return res.status(200).json(
     new ApiResponse(200, "Coupon applied successfully", {
@@ -784,6 +828,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
         gstAmount,
         packagingCharge,
         deliveryCharge,
+        platformCharge,
         finalAmount,
       },
     }),
@@ -792,7 +837,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
 
 const getPlatformSettingsUser = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached()
-  if(cachedSettings){
+  if(cachedSettings && cachedSettings.platformCharge !== undefined){
     return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', cachedSettings))
   }
   const platformSettings = await platformSettingsModel
@@ -802,9 +847,10 @@ const getPlatformSettingsUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Platform settings not found')
   }
 
-  await setPlatformSettingsCached(platformSettings)
+  const plainSettings = platformSettings.toObject()
+  await setPlatformSettingsCached(plainSettings)
 
-  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', platformSettings))
+  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', plainSettings))
 })
 
 export default {

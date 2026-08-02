@@ -8,6 +8,8 @@ import marketPlaceOrderModel from "../models/marketPlaceOrders.models.js";
 import mongoose from "mongoose";
 import emailServices from "../services/emailQueue.services.js";
 import { generateDeliveryAssignmentHTML } from "../utils/utils.js";
+import { deleteOrderHistoryCached } from "../services/orderHistoryCached.services.js";
+import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 
 const isOrderAssignedToPartner = (assignedPartnerId, deliveryPartner) => {
   if (!assignedPartnerId || !deliveryPartner) {
@@ -19,6 +21,58 @@ const isOrderAssignedToPartner = (assignedPartnerId, deliveryPartner) => {
     assignedId === deliveryPartner._id.toString() ||
     assignedId === deliveryPartner.user.toString()
   );
+};
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getFinalAmountFromPricing = (pricing = {}) => {
+  const subTotal = toNumber(pricing.subTotal);
+  const couponDiscount = toNumber(pricing.couponDiscount);
+  const gstAmount = toNumber(pricing.gstAmount);
+  const deliveryCharge = toNumber(pricing.deliveryCharge);
+  const packagingCharge = toNumber(pricing.packagingCharge);
+  const platformCharge = toNumber(pricing.platformCharge);
+
+  if (pricing.finalAmount !== undefined && pricing.finalAmount !== null) {
+    return toNumber(pricing.finalAmount);
+  }
+
+  return (
+    subTotal -
+    couponDiscount +
+    gstAmount +
+    deliveryCharge +
+    packagingCharge +
+    platformCharge
+  );
+};
+
+const normalizeOrderPricingForDeliveryPartner = (orderDocument) => {
+  const order =
+    typeof orderDocument?.toObject === "function"
+      ? orderDocument.toObject()
+      : { ...orderDocument };
+
+  if (!order.pricing) {
+    return order;
+  }
+
+  const finalAmount = getFinalAmountFromPricing(order.pricing);
+  const platformCharge = toNumber(order.pricing.platformCharge);
+
+  order.pricing = {
+    ...order.pricing,
+    platformCharge,
+    finalAmount,
+  };
+
+  order.totalAmount = finalAmount;
+  order.finalAmount = finalAmount;
+
+  return order;
 };
 
 //Food orders//
@@ -174,9 +228,11 @@ const viewAllOrders = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, "No orders to show", orders));
   }
 
+  const normalizedOrders = orders.map(normalizeOrderPricingForDeliveryPartner);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Orders fetched successfully", orders));
+    .json(new ApiResponse(200, "Orders fetched successfully", normalizedOrders));
 });
 
 const viewOneOrder = asyncHandler(async (req, res) => {
@@ -212,9 +268,11 @@ const viewOneOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, "No access to this order");
   }
 
+  const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Order fetched successfully", order));
+    .json(new ApiResponse(200, "Order fetched successfully", normalizedOrder));
 });
 
 const pickUpOrder = asyncHandler(async (req, res) => {
@@ -247,10 +305,13 @@ const pickUpOrder = asyncHandler(async (req, res) => {
 
   order.orderStatus = "OUT_FOR_DELIVERY";
   await order.save();
+  await deleteOrderHistoryCached(order.user.toString());
+
+  const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Order Picked up successfully", order));
+    .json(new ApiResponse(200, "Order Picked up successfully", normalizedOrder));
 });
 
 const deliverOrder = asyncHandler(async (req, res) => {
@@ -284,10 +345,13 @@ const deliverOrder = asyncHandler(async (req, res) => {
   deliveryPartner.isAvailable = true;
 
   await Promise.all([order.save(), deliveryPartner.save()]);
+  await deleteOrderHistoryCached(order.user.toString());
+
+  const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "delivered successfully", order));
+    .json(new ApiResponse(200, "delivered successfully", normalizedOrder));
 });
 
 //MarketPlace orders//
@@ -320,9 +384,11 @@ const viewAllMarketPlaceOrders = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, "No orders to fetch ", orders));
   }
 
+  const normalizedOrders = orders.map(normalizeOrderPricingForDeliveryPartner);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Orders fetched successfully", orders));
+    .json(new ApiResponse(200, "Orders fetched successfully", normalizedOrders));
 });
 
 const viewOrderById = asyncHandler(async (req, res) => {
@@ -358,7 +424,9 @@ const viewOrderById = asyncHandler(async (req, res) => {
     throw new ApiError(403,"You don't have access to this order")
   }
 
-  return res.status(200).json(new ApiResponse(200,"Order fetched successfully",order))
+  const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
+
+  return res.status(200).json(new ApiResponse(200,"Order fetched successfully",normalizedOrder))
 });
 
 const updateOrderStatus = asyncHandler(async(req,res)=>{
@@ -393,6 +461,7 @@ const updateOrderStatus = asyncHandler(async(req,res)=>{
   order.orderStatus = "DELIVERED"
   deliveryPartner.isAvailable = true
   await Promise.all([order.save(), deliveryPartner.save()])
+  await deleteMarketplaceOrderHistoryCached(order.user.toString())
 
   return res.status(200).json(new ApiResponse(200,"Order status updated successfully"))
 })

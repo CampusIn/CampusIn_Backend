@@ -35,6 +35,11 @@ const settingsValidatorsRules = [
     .isInt({ min: 0 })
     .withMessage("Packaging charges cannot be negative"),
 
+  body("platformCharge")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Platform charges cannot be negative"),
+
   body("freeDeliveryAbove")
     .optional()
     .isInt({ min: 0 })

@@ -38,7 +38,12 @@ import { deleteAnnouncementsCached } from "../services/announcementsCached.servi
 import { deletedCategoriesCached } from "../services/categoriesCached.services.js";
 import { deleteRestaurantCached } from "../services/restaurantCached.services.js";
 import { deleteProductCached } from "../services/marketPlaceProductsCached.services.js";
+import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 import { deleteCouponCached } from "../services/couponCached.services.js";
+import {
+  deleteUserRepairRequestByIdCached,
+  deleteUserRepairRequestsCached,
+} from "../services/repairRequestCached.services.js";
 import {
   getMarketplaceOverviewPipeline,
   getMarketplaceOrderStatusPipeline,
@@ -467,14 +472,23 @@ const editSettings = asyncHandler(async (req, res) => {
   await settings.save();
   await deletePlatformSettingsCached();
 
+  const refreshedSettings = await platformSettingsModel
+    .findById(settings._id)
+    .select("-updatedAt -createdAt -__v")
+    .lean();
+
+  if (refreshedSettings) {
+    await setPlatformSettingsCached(refreshedSettings);
+  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Settings updated successfully", settings));
+    .json(new ApiResponse(200, "Settings updated successfully", refreshedSettings || settings));
 });
 
 const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached();
-  if (cachedSettings) {
+  if (cachedSettings && cachedSettings.platformCharge !== undefined) {
     return res
       .status(200)
       .json(
@@ -491,7 +505,9 @@ const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
   if (!platformSettings) {
     throw new ApiError(404, "Platform settings not found");
   }
-  await setPlatformSettingsCached(platformSettings);
+
+  const plainSettings = platformSettings.toObject();
+  await setPlatformSettingsCached(plainSettings);
 
   return res
     .status(200)
@@ -499,7 +515,7 @@ const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         "Platform settings fetched successfully",
-        platformSettings,
+        plainSettings,
       ),
     );
 });
@@ -1345,6 +1361,48 @@ const getMarketPlaceInventory = asyncHandler(async (req, res) => {
     );
 });
 
+const buildCategoryPricingSettings = (payload = {}, fallback = null) => {
+  const hasUpdates = [
+    "deliveryCharge",
+    "freeDeliveryAbove",
+    "minimumOrderValue",
+    "gstPercentage",
+    "packagingCharge",
+    "platformCharge",
+  ].some((field) => payload[field] !== undefined);
+
+  if (!hasUpdates) {
+    return fallback;
+  }
+
+  return {
+    deliveryCharge:
+      payload.deliveryCharge !== undefined
+        ? Number(payload.deliveryCharge)
+        : fallback?.deliveryCharge,
+    freeDeliveryAbove:
+      payload.freeDeliveryAbove !== undefined
+        ? Number(payload.freeDeliveryAbove)
+        : fallback?.freeDeliveryAbove,
+    minimumOrderValue:
+      payload.minimumOrderValue !== undefined
+        ? Number(payload.minimumOrderValue)
+        : fallback?.minimumOrderValue,
+    gstPercentage:
+      payload.gstPercentage !== undefined
+        ? Number(payload.gstPercentage)
+        : fallback?.gstPercentage,
+    packagingCharge:
+      payload.packagingCharge !== undefined
+        ? Number(payload.packagingCharge)
+        : fallback?.packagingCharge,
+    platformCharge:
+      payload.platformCharge !== undefined
+        ? Number(payload.platformCharge)
+        : fallback?.platformCharge,
+  };
+};
+
 const createCategory = asyncHandler(async (req, res) => {
   const { name, description, priority } = req.body;
   const imageLocalPath = req.file?.path;
@@ -1362,6 +1420,18 @@ const createCategory = asyncHandler(async (req, res) => {
   }
 
   const imageUrl = await uploadOnCloudinary(imageLocalPath);
+  const pricingSettings = buildCategoryPricingSettings(req.body);
+
+  if (!pricingSettings) {
+    throw new ApiError(400, "Marketplace category pricing settings are required");
+  }
+
+  if (pricingSettings.freeDeliveryAbove < pricingSettings.minimumOrderValue) {
+    throw new ApiError(
+      400,
+      "Minimum order value cannot be above free delivery order value",
+    );
+  }
 
   const category = await marketPlaceCategoryModel.create({
     name: normalisedName,
@@ -1369,6 +1439,7 @@ const createCategory = asyncHandler(async (req, res) => {
     priority,
     image: imageUrl,
     createdBy: req.user.id,
+    pricingSettings,
   });
 
   await deletedCategoriesCached();
@@ -1411,7 +1482,9 @@ const getAllCategories = asyncHandler(async (req, res) => {
         path: "createdBy",
         select: "username",
       })
-      .select("name description image priority isActive createdBy createdAt")
+      .select(
+        "name description image priority isActive createdBy createdAt pricingSettings",
+      )
       .skip(skip)
       .limit(limitNumber),
 
@@ -1459,7 +1532,7 @@ const getCategoryById = asyncHandler(async (req, res) => {
       select: "username",
     })
     .select(
-      "name description image priority isActive createdBy createdAt updatedAt",
+      "name description image priority isActive createdBy createdAt updatedAt pricingSettings",
     );
   if (!category) {
     throw new ApiError(404, "Category not found");
@@ -1507,6 +1580,21 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (imageLocalPath) {
     const imageUrl = await uploadOnCloudinary(imageLocalPath);
     category.image = imageUrl;
+  }
+
+  const updatedPricingSettings = buildCategoryPricingSettings(
+    req.body,
+    category.pricingSettings,
+  );
+  if (updatedPricingSettings) {
+    if (updatedPricingSettings.freeDeliveryAbove < updatedPricingSettings.minimumOrderValue) {
+      throw new ApiError(
+        400,
+        "Minimum order value cannot be above free delivery order value",
+      );
+    }
+
+    category.pricingSettings = updatedPricingSettings;
   }
 
   await category.save();
@@ -2007,7 +2095,9 @@ const updateMarketPlaceOrderStatusAdmin = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-    if (["CANCELLED", "REJECTED"].includes(orderStatus)) {
+    const shouldRestoreStock = ["CANCELLED", "REJECTED"].includes(orderStatus);
+
+    if (shouldRestoreStock) {
       await restoreMarketOrderStock(order.items, session);
     }
 
@@ -2040,6 +2130,18 @@ const updateMarketPlaceOrderStatusAdmin = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  const cacheInvalidationTasks = [
+    deleteMarketplaceOrderHistoryCached(order.user.toString()),
+  ];
+
+  if (["CANCELLED", "REJECTED"].includes(orderStatus)) {
+    cacheInvalidationTasks.push(
+      ...order.items.map((item) => deleteProductCached(item.product)),
+    );
+  }
+
+  await Promise.all(cacheInvalidationTasks);
 
   return res.status(200).json(
     new ApiResponse(200, "Marketplace order status updated successfully", {
@@ -2294,6 +2396,15 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
   repairRequest.requestStatus = "PRICE_SENT";
   await repairRequest.save();
 
+  const requestOwnerId = repairRequest.user._id.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
+
   try {
     await emailServices.queueRepairRequestEstimateEmail({
       to: repairRequest.user.email,
@@ -2355,6 +2466,15 @@ const assignRepairPartnerAdmin = asyncHandler(async (req, res) => {
   repairRequest.requestStatus = "FORWARDED";
   await repairRequest.save();
 
+  const requestOwnerId = repairRequest.user.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
+
   await repairRequest.populate({
     path: "repairPartner",
     select: "name phoneNumber specialisations isActive",
@@ -2401,6 +2521,15 @@ const completeRepairRequestAdmin = asyncHandler(async (req, res) => {
     repairRequest.adminRemarks = adminRemarks;
   }
   await repairRequest.save();
+
+  const requestOwnerId = repairRequest.user.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
 
   return res
     .status(200)
