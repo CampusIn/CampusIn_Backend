@@ -6,6 +6,20 @@ import orderModel from "../models/order.models.js";
 import userModel from "../models/user.models.js";
 import marketPlaceOrderModel from "../models/marketPlaceOrders.models.js";
 import mongoose from "mongoose";
+import emailServices from "../services/emailQueue.services.js";
+import { generateDeliveryAssignmentHTML } from "../utils/utils.js";
+
+const isOrderAssignedToPartner = (assignedPartnerId, deliveryPartner) => {
+  if (!assignedPartnerId || !deliveryPartner) {
+    return false;
+  }
+
+  const assignedId = assignedPartnerId.toString();
+  return (
+    assignedId === deliveryPartner._id.toString() ||
+    assignedId === deliveryPartner.user.toString()
+  );
+};
 
 //Food orders//
 const createProfile = asyncHandler(async (req, res) => {
@@ -72,8 +86,12 @@ const assignPartner = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Delivery partner already assigned");
   }
 
-  const deliveryPartner =
-    await deliveryPartnerModel.findById(deliveryPartnerId);
+  const deliveryPartner = await deliveryPartnerModel
+    .findById(deliveryPartnerId)
+    .populate({
+      path: "user",
+      select: "email username",
+    });
   if (!deliveryPartner) {
     throw new ApiError(404, "Delivery partner does not exists");
   }
@@ -85,8 +103,39 @@ const assignPartner = asyncHandler(async (req, res) => {
   order.deliveryPartner = deliveryPartner._id;
   await order.save();
 
+  await order.populate({
+    path: "deliveryPartner",
+    select: "phoneNumber user",
+    populate: {
+      path: "user",
+      select: "username",
+    },
+  });
+
   deliveryPartner.isAvailable = false;
   await deliveryPartner.save();
+
+  try {
+    if (deliveryPartner.user?.email) {
+      await emailServices.queueDeliveryAssignmentEmail({
+        to: deliveryPartner.user.email,
+        subject: `New delivery assigned: ${order.orderNumber}`,
+        text: `You have been assigned a new delivery ${order.orderNumber} on CampusIn. Login to view delivery details.`,
+        deliveryAssignmentHtml: generateDeliveryAssignmentHTML({
+          deliveryPartnerName: deliveryPartner.user.username,
+          orderNumber: order.orderNumber,
+          pickupFrom: order.restaurantName,
+          customerPhone: order.customerPhone,
+          deliveryAddress: order.deliveryAddress,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error(
+      "Failed to queue delivery assignment email for food order:",
+      error.message,
+    );
+  }
 
   return res
     .status(200)
@@ -108,7 +157,10 @@ const viewAllOrders = asyncHandler(async (req, res) => {
 
   const orders = await orderModel
     .find({
-      deliveryPartner: deliveryPartner._id,
+      $or: [
+        { deliveryPartner: deliveryPartner._id },
+        { deliveryPartner: deliveryPartner.user },
+      ],
     })
     .populate({
       path: "user",
@@ -156,7 +208,7 @@ const viewOneOrder = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Order not found");
   }
 
-  if (order.deliveryPartner.toString() !== deliveryPartner._id.toString()) {
+  if (!isOrderAssignedToPartner(order.deliveryPartner, deliveryPartner)) {
     throw new ApiError(403, "No access to this order");
   }
 
@@ -185,7 +237,7 @@ const pickUpOrder = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Order does not exists");
   }
 
-  if (order.deliveryPartner.toString() !== deliveryPartner._id.toString()) {
+  if (!isOrderAssignedToPartner(order.deliveryPartner, deliveryPartner)) {
     throw new ApiError(403, "Forbidden");
   }
 
@@ -221,7 +273,7 @@ const deliverOrder = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Order does not exists");
   }
 
-  if (order.deliveryPartner.toString() !== deliveryPartner._id.toString()) {
+  if (!isOrderAssignedToPartner(order.deliveryPartner, deliveryPartner)) {
     throw new ApiError(403, "Forbidden");
   }
 
@@ -251,7 +303,10 @@ const viewAllMarketPlaceOrders = asyncHandler(async (req, res) => {
 
   const orders = await marketPlaceOrderModel
     .find({
-      deliveryPartner: deliveryPartner._id,
+      $or: [
+        { deliveryPartner: deliveryPartner._id },
+        { deliveryPartner: deliveryPartner.user },
+      ],
     })
     .populate({
       path: "user",
@@ -299,7 +354,7 @@ const viewOrderById = asyncHandler(async (req, res) => {
     throw new ApiError(404,"Order not found")
   }
 
-  if(order.deliveryPartner.toString() !== deliveryPartner._id.toString()){
+  if (!isOrderAssignedToPartner(order.deliveryPartner, deliveryPartner)) {
     throw new ApiError(403,"You don't have access to this order")
   }
 
@@ -320,8 +375,11 @@ const updateOrderStatus = asyncHandler(async(req,res)=>{
     throw new ApiError(400,"Delivery partner not found")
   }
   const order = await marketPlaceOrderModel.findOne({
-    deliveryPartner:deliveryPartner._id,
-    _id:orderId
+    _id:orderId,
+    $or: [
+      { deliveryPartner: deliveryPartner._id },
+      { deliveryPartner: deliveryPartner.user },
+    ],
   })
 
   if(!order){

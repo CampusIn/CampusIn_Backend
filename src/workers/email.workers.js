@@ -3,39 +3,115 @@ import {redis} from "../config/redis.js";
 import { REDIS_KEYS } from "../constants/redis.constants.js";
 import { sendEmail } from "../services/email.services.js";
 
+const EMAIL_JOB_HANDLERS = {
+  SEND_OTP: async ({ to, subject, text, otpHtml }) =>
+    sendEmail(to, subject, text, otpHtml),
+  WELCOME: async ({ to, subject, text, welcomeHtml }) =>
+    sendEmail(to, subject, text, welcomeHtml),
+  FORGOT_PASSWORD: async ({ to, subject, text, forgotHtml }) =>
+    sendEmail(to, subject, text, forgotHtml),
+  REPAIR_REQUEST_ESTIMATE: async ({ to, subject, text, estimateHtml }) =>
+    sendEmail(to, subject, text, estimateHtml),
+  REMINDER: async ({ to, subject, text, reminderHtml }) =>
+    sendEmail(to, subject, text, reminderHtml),
+  VENDOR_NEW_ORDER: async ({ to, subject, text, vendorOrderHtml }) =>
+    sendEmail(to, subject, text, vendorOrderHtml),
+  ADMIN_MARKETPLACE_NEW_ORDER: async ({ to, subject, text, adminMarketplaceOrderHtml }) =>
+    sendEmail(to, subject, text, adminMarketplaceOrderHtml),
+  DELIVERY_ASSIGNMENT: async ({ to, subject, text, deliveryAssignmentHtml }) =>
+    sendEmail(to, subject, text, deliveryAssignmentHtml),
+  ADMIN_REPAIR_REQUEST_SUBMITTED: async ({ to, subject, text, repairRequestSubmittedHtml }) =>
+    sendEmail(to, subject, text, repairRequestSubmittedHtml),
+  ADMIN_REPAIR_PRICE_DECISION: async ({ to, subject, text, repairPriceDecisionHtml }) =>
+    sendEmail(to, subject, text, repairPriceDecisionHtml),
+};
+
+const EMAIL_JOB_ALIASES = {
+  [REDIS_KEYS.SEND_OTP]: "SEND_OTP",
+  OTP: "SEND_OTP",
+  [REDIS_KEYS.WELCOME]: "WELCOME",
+  [REDIS_KEYS.FORGOT_PASSWORD]: "FORGOT_PASSWORD",
+  FORGOT: "FORGOT_PASSWORD",
+  [REDIS_KEYS.REPAIR_REQUEST_ESTIMATE]: "REPAIR_REQUEST_ESTIMATE",
+  REPAIR_ESTIMATE: "REPAIR_REQUEST_ESTIMATE",
+  [REDIS_KEYS.REMINDER]: "REMINDER",
+  [REDIS_KEYS.VENDOR_NEW_ORDER]: "VENDOR_NEW_ORDER",
+  VENDOR_ORDER: "VENDOR_NEW_ORDER",
+  [REDIS_KEYS.ADMIN_MARKETPLACE_NEW_ORDER]: "ADMIN_MARKETPLACE_NEW_ORDER",
+  ADMIN_MARKETPLACE_ORDER: "ADMIN_MARKETPLACE_NEW_ORDER",
+  [REDIS_KEYS.DELIVERY_ASSIGNMENT]: "DELIVERY_ASSIGNMENT",
+  DELIVERY_ASSIGN: "DELIVERY_ASSIGNMENT",
+  DELIVERYASSIGNMENT: "DELIVERY_ASSIGNMENT",
+  [REDIS_KEYS.ADMIN_REPAIR_REQUEST_SUBMITTED]: "ADMIN_REPAIR_REQUEST_SUBMITTED",
+  ADMIN_REPAIR_SUBMITTED: "ADMIN_REPAIR_REQUEST_SUBMITTED",
+  [REDIS_KEYS.ADMIN_REPAIR_PRICE_DECISION]: "ADMIN_REPAIR_PRICE_DECISION",
+  ADMIN_REPAIR_DECISION: "ADMIN_REPAIR_PRICE_DECISION",
+};
+
+const normalizeJobName = (jobName) => {
+  if (typeof jobName !== "string") {
+    return jobName;
+  }
+
+  return jobName
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+};
+
+const inferJobNameFromPayload = (data = {}) => {
+  if (data.otpHtml) return "SEND_OTP";
+  if (data.welcomeHtml) return "WELCOME";
+  if (data.forgotHtml) return "FORGOT_PASSWORD";
+  if (data.estimateHtml) return "REPAIR_REQUEST_ESTIMATE";
+  if (data.reminderHtml) return "REMINDER";
+  if (data.vendorOrderHtml) return "VENDOR_NEW_ORDER";
+  if (data.adminMarketplaceOrderHtml) return "ADMIN_MARKETPLACE_NEW_ORDER";
+  if (data.deliveryAssignmentHtml) return "DELIVERY_ASSIGNMENT";
+  if (data.repairRequestSubmittedHtml) return "ADMIN_REPAIR_REQUEST_SUBMITTED";
+  if (data.repairPriceDecisionHtml) return "ADMIN_REPAIR_PRICE_DECISION";
+
+  return null;
+};
+
+const getEmailHtmlFromPayload = (data = {}) => {
+  const htmlKey = Object.keys(data).find(
+    (key) => key.toLowerCase().endsWith("html") && typeof data[key] === "string",
+  );
+
+  return htmlKey ? data[htmlKey] : null;
+};
+
 const emailWorker = new Worker(
   "email",
   async (job) => {
-    switch (job.name) {
-      case REDIS_KEYS.SEND_OTP: {
-        const { to, subject, text, otpHtml } = job.data;
-        await sendEmail(to, subject, text, otpHtml);
-        break;
-      }
-      case REDIS_KEYS.WELCOME: {
-        const { to, subject, text, welcomeHtml } = job.data;
-        await sendEmail(to, subject, text, welcomeHtml);
-        break;
+    const normalizedJobName = normalizeJobName(job.name);
+
+    const canonicalJobName = EMAIL_JOB_ALIASES[normalizedJobName] || normalizedJobName;
+    const inferredJobName = inferJobNameFromPayload(job.data);
+    const resolvedJobName = EMAIL_JOB_HANDLERS[canonicalJobName]
+      ? canonicalJobName
+      : inferredJobName;
+    const handler = EMAIL_JOB_HANDLERS[resolvedJobName];
+
+    if (!handler) {
+      const { to, subject, text } = job.data || {};
+      const fallbackHtml = getEmailHtmlFromPayload(job.data);
+
+      if (to && subject && text && fallbackHtml) {
+        console.warn(
+          `Unknown email job: ${job.name}. Processed with generic fallback handler.`,
+        );
+        await sendEmail(to, subject, text, fallbackHtml);
+        return;
       }
 
-      case REDIS_KEYS.FORGOT_PASSWORD: {
-        const {to,subject,text,forgotHtml} = job.data
-        await sendEmail(to,subject,text,forgotHtml)
-        break;
-      }
-      case REDIS_KEYS.REPAIR_REQUEST_ESTIMATE: {
-        const { to, subject, text, estimateHtml } = job.data;
-        await sendEmail(to, subject, text, estimateHtml);
-        break;
-      }
-      case REDIS_KEYS.REMINDER: {
-        const { to, subject, text, reminderHtml } = job.data;
-        await sendEmail(to, subject, text, reminderHtml);
-        break;
-      }
-      default:
-        throw new Error(`Unknown email job: ${job.name}`);
+      console.warn(`Skipping unknown email job: ${job.name}`);
+      return;
     }
+
+    await handler(job.data);
   },
   { connection: redis },
 );

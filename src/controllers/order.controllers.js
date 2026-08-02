@@ -11,6 +11,8 @@ import couponModel from "../models/coupon.models.js";
 import platformSettingsModel from "../models/platformSettings.models.js";
 import couponUsageModel from "../models/couponUsage.models.js";
 import menuModel from "../models/menuItem.models.js";
+import emailServices from "../services/emailQueue.services.js";
+import { generateVendorNewOrderHTML } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
 import { getCouponCached, setCouponCached, deleteCouponCached } from "../services/couponCached.services.js";
 
@@ -271,6 +273,29 @@ const createOrder = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
+  try {
+    const vendorUser = await userModel
+      .findById(restaurant.owner)
+      .select("email username");
+
+    if (vendorUser?.email) {
+      await emailServices.queueVendorNewOrderEmail({
+        to: vendorUser.email,
+        subject: `New order for ${restaurant.restaurantName}`,
+        text: `You have received a new order ${order.orderNumber} on CampusIn. Login to view order details.`,
+        vendorOrderHtml: generateVendorNewOrderHTML({
+          vendorName: vendorUser.username,
+          restaurantName: restaurant.restaurantName,
+          orderNumber: order.orderNumber,
+          customerPhone: order.customerPhone,
+          totalAmount: order.totalAmount,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error("Failed to queue vendor new-order email:", error.message);
+  }
+
   return res.status(200).json(
     new ApiResponse(200, "Order created successful", {
       applied,
@@ -420,15 +445,25 @@ const getVendorOrder = asyncHandler(async (req, res) => {
   const orders = await orderModel
     .find({ restaurant: restaurant._id })
     .select(
-      "user items totalAmount pricing orderNumber paymentMethod paymentStatus orderStatus createdAt customerPhone deliveryAddress couponCode rejectionMsg",
+      "user items totalAmount pricing orderNumber paymentMethod paymentStatus orderStatus createdAt customerPhone deliveryAddress couponCode rejectionMsg deliveryPartner",
     )
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limitNumber)
-    .populate({
-      path: "user",
-      select: "username",
-    });
+    .populate([
+      {
+        path: "user",
+        select: "username",
+      },
+      {
+        path: "deliveryPartner",
+        select: "phoneNumber vehicleNumber user",
+        populate: {
+          path: "user",
+          select: "username",
+        },
+      },
+    ]);
 
 
 
@@ -446,9 +481,25 @@ const getVendorOrder = asyncHandler(async (req, res) => {
     );
   }
 
+  const ordersWithDeliveryPartnerDetails = orders.map((order) => {
+    const normalizedOrder = order.toObject();
+    const assignedPartner = normalizedOrder.deliveryPartner;
+
+    return {
+      ...normalizedOrder,
+      deliveryPartnerDetails: assignedPartner
+        ? {
+            name: assignedPartner.user?.username || null,
+            phoneNumber: assignedPartner.phoneNumber || null,
+            vehicleNumber: assignedPartner.vehicleNumber || null,
+          }
+        : null,
+    };
+  });
+
   return res.status(200).json(
     new ApiResponse(200, "Orders fetched succesfuly", {
-      orders,
+      orders: ordersWithDeliveryPartnerDetails,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -489,7 +540,7 @@ const getSingleVendorOrder = asyncHandler(async (req, res) => {
   const order = await orderModel
     .findById(orderId)
     .select(
-      "user restaurant orderNumber restaurantName items paymentMethod paymentStatus orderStatus totalAmount pricing customerPhone deliveryAddress createdAt rejectionMsg")
+      "user restaurant orderNumber restaurantName items paymentMethod paymentStatus orderStatus totalAmount pricing customerPhone deliveryAddress createdAt rejectionMsg deliveryPartner")
     .populate([
       {
       path: "items.menuItem",
@@ -497,16 +548,39 @@ const getSingleVendorOrder = asyncHandler(async (req, res) => {
     {
       path:'user',
       select:'username'
-    }]
+    },
+    {
+      path: "deliveryPartner",
+      select: "phoneNumber vehicleNumber user",
+      populate: {
+        path: "user",
+        select: "username",
+      },
+    },
+  ]
     );
   if (!order) {
     throw new ApiError(404, "Order not found");
   }
 
+  const normalizedOrder = order.toObject();
+  const assignedPartner = normalizedOrder.deliveryPartner;
+
+  const orderWithDeliveryPartnerDetails = {
+    ...normalizedOrder,
+    deliveryPartnerDetails: assignedPartner
+      ? {
+          name: assignedPartner.user?.username || null,
+          phoneNumber: assignedPartner.phoneNumber || null,
+          vehicleNumber: assignedPartner.vehicleNumber || null,
+        }
+      : null,
+  };
+
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Order details fetched successfuly", order));
+    .json(new ApiResponse(200, "Order details fetched successfuly", orderWithDeliveryPartnerDetails));
 });
 
 const changeOrderStatus = asyncHandler(async (req, res) => {

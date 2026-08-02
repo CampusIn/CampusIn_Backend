@@ -5,6 +5,12 @@ import asyncHandler from "../utils/asyncHandler.js";
 import generateRequestNumber from "../utils/requestNumber.utils.js";
 import { uploadOnCloudinary } from "../services/cloudinary.services.js";
 import mongoose from "mongoose";
+import userModel from "../models/user.models.js";
+import emailServices from "../services/emailQueue.services.js";
+import {
+  generateAdminRepairRequestSubmittedHTML,
+  generateAdminRepairPriceDecisionHTML,
+} from "../utils/utils.js";
 
 const createRepairRequest = asyncHandler(async (req, res) => {
   const { serviceType, description, pickupLocation, customerPhone } = req.body;
@@ -34,6 +40,33 @@ const createRepairRequest = asyncHandler(async (req, res) => {
     requestNumber,
     requestStatus: "SUBMITTED",
   });
+
+  try {
+    const admins = await userModel.find({ role: "admin" }).select("email username");
+    const adminEmailJobs = admins
+      .filter((admin) => admin.email)
+      .map((admin) =>
+        emailServices.queueAdminRepairRequestSubmittedEmail({
+          to: admin.email,
+          subject: `New repair request ${repairRequest.requestNumber}`,
+          text: `A new repair request ${repairRequest.requestNumber} has been submitted on CampusIn. Login to review the request.`,
+          repairRequestSubmittedHtml: generateAdminRepairRequestSubmittedHTML({
+            adminName: admin.username,
+            requestNumber: repairRequest.requestNumber,
+            serviceType: repairRequest.serviceType,
+            customerPhone: repairRequest.customerPhone,
+            pickupLocation: repairRequest.pickupLocation,
+          }),
+        }),
+      );
+
+    await Promise.all(adminEmailJobs);
+  } catch (error) {
+    console.error(
+      "Failed to queue admin emails for repair request submission:",
+      error.message,
+    );
+  }
 
   return res
     .status(201)
@@ -187,6 +220,32 @@ const allowedStatus = ["ACCEPTED","REJECTED"]
   repairRequest.requestStatus = requestStatus;
   repairRequest.acceptedAt = new Date();
   await repairRequest.save();
+
+  try {
+    const admins = await userModel.find({ role: "admin" }).select("email username");
+    const adminEmailJobs = admins
+      .filter((admin) => admin.email)
+      .map((admin) =>
+        emailServices.queueAdminRepairPriceDecisionEmail({
+          to: admin.email,
+          subject: `Repair estimate ${requestStatus.toLowerCase()} by customer`,
+          text: `Customer has ${requestStatus.toLowerCase()} the repair estimate for request ${repairRequest.requestNumber}. Login to continue the workflow.`,
+          repairPriceDecisionHtml: generateAdminRepairPriceDecisionHTML({
+            adminName: admin.username,
+            requestNumber: repairRequest.requestNumber,
+            requestStatus,
+            customerPhone: repairRequest.customerPhone,
+          }),
+        }),
+      );
+
+    await Promise.all(adminEmailJobs);
+  } catch (error) {
+    console.error(
+      "Failed to queue admin emails for repair request decision:",
+      error.message,
+    );
+  }
 
   return res
     .status(200)

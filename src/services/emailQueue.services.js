@@ -24,7 +24,6 @@ const queueOTPEmail = async ({ to, subject, text, otpHtml }) => {
     },
     {
       jobId: `otp-${to}-${Date.now()}`,
-      removeOnComplete: true,
       delay: 0,
     },
   );
@@ -42,7 +41,6 @@ const queueWelcomeEmail = async ({ to, subject, text, welcomeHtml }) => {
     },
     {
       jobId: `wel-${to}-${Date.now()}`,
-      removeOnComplete: true,
       delay: 0,
     },
   );
@@ -57,7 +55,6 @@ const queueForgotEmail = async({to,subject,text,forgotHtml})=>{
     forgotHtml
   },{
     jobId: `for-${to}-${Date.now()}`,
-    removeOnComplete:true,
     delay:0
   })
 }
@@ -79,7 +76,6 @@ const queueRepairRequestEstimateEmail = async ({
     },
     {
       jobId: `estimate-${to}-${Date.now()}`,
-      removeOnComplete: true,
       delay: 0,
     },
   );
@@ -97,7 +93,111 @@ const queueReminderEmail = async ({ to, subject, text, reminderHtml }) => {
     },
     {
       jobId: `rem-${to}-${Date.now()}`,
-      removeOnComplete: true,
+      delay: 0,
+    },
+  );
+};
+
+const queueVendorNewOrderEmail = async ({ to, subject, text, vendorOrderHtml }) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.VENDOR_NEW_ORDER,
+    {
+      to,
+      subject,
+      text,
+      vendorOrderHtml,
+    },
+    {
+      jobId: `vendor-order-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queueAdminMarketplaceOrderEmail = async ({
+  to,
+  subject,
+  text,
+  adminMarketplaceOrderHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.ADMIN_MARKETPLACE_NEW_ORDER,
+    {
+      to,
+      subject,
+      text,
+      adminMarketplaceOrderHtml,
+    },
+    {
+      jobId: `admin-marketplace-order-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queueDeliveryAssignmentEmail = async ({
+  to,
+  subject,
+  text,
+  deliveryAssignmentHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.DELIVERY_ASSIGNMENT,
+    {
+      to,
+      subject,
+      text,
+      deliveryAssignmentHtml,
+    },
+    {
+      jobId: `delivery-assignment-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queueAdminRepairRequestSubmittedEmail = async ({
+  to,
+  subject,
+  text,
+  repairRequestSubmittedHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.ADMIN_REPAIR_REQUEST_SUBMITTED,
+    {
+      to,
+      subject,
+      text,
+      repairRequestSubmittedHtml,
+    },
+    {
+      jobId: `admin-repair-submitted-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queueAdminRepairPriceDecisionEmail = async ({
+  to,
+  subject,
+  text,
+  repairPriceDecisionHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.ADMIN_REPAIR_PRICE_DECISION,
+    {
+      to,
+      subject,
+      text,
+      repairPriceDecisionHtml,
+    },
+    {
+      jobId: `admin-repair-decision-${to}-${Date.now()}`,
       delay: 0,
     },
   );
@@ -109,4 +209,9 @@ export default {
   queueForgotEmail,
   queueRepairRequestEstimateEmail,
   queueReminderEmail,
+  queueVendorNewOrderEmail,
+  queueAdminMarketplaceOrderEmail,
+  queueDeliveryAssignmentEmail,
+  queueAdminRepairRequestSubmittedEmail,
+  queueAdminRepairPriceDecisionEmail,
 };
