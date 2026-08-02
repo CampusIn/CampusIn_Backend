@@ -1361,6 +1361,48 @@ const getMarketPlaceInventory = asyncHandler(async (req, res) => {
     );
 });
 
+const buildCategoryPricingSettings = (payload = {}, fallback = null) => {
+  const hasUpdates = [
+    "deliveryCharge",
+    "freeDeliveryAbove",
+    "minimumOrderValue",
+    "gstPercentage",
+    "packagingCharge",
+    "platformCharge",
+  ].some((field) => payload[field] !== undefined);
+
+  if (!hasUpdates) {
+    return fallback;
+  }
+
+  return {
+    deliveryCharge:
+      payload.deliveryCharge !== undefined
+        ? Number(payload.deliveryCharge)
+        : fallback?.deliveryCharge,
+    freeDeliveryAbove:
+      payload.freeDeliveryAbove !== undefined
+        ? Number(payload.freeDeliveryAbove)
+        : fallback?.freeDeliveryAbove,
+    minimumOrderValue:
+      payload.minimumOrderValue !== undefined
+        ? Number(payload.minimumOrderValue)
+        : fallback?.minimumOrderValue,
+    gstPercentage:
+      payload.gstPercentage !== undefined
+        ? Number(payload.gstPercentage)
+        : fallback?.gstPercentage,
+    packagingCharge:
+      payload.packagingCharge !== undefined
+        ? Number(payload.packagingCharge)
+        : fallback?.packagingCharge,
+    platformCharge:
+      payload.platformCharge !== undefined
+        ? Number(payload.platformCharge)
+        : fallback?.platformCharge,
+  };
+};
+
 const createCategory = asyncHandler(async (req, res) => {
   const { name, description, priority } = req.body;
   const imageLocalPath = req.file?.path;
@@ -1378,6 +1420,18 @@ const createCategory = asyncHandler(async (req, res) => {
   }
 
   const imageUrl = await uploadOnCloudinary(imageLocalPath);
+  const pricingSettings = buildCategoryPricingSettings(req.body);
+
+  if (!pricingSettings) {
+    throw new ApiError(400, "Marketplace category pricing settings are required");
+  }
+
+  if (pricingSettings.freeDeliveryAbove < pricingSettings.minimumOrderValue) {
+    throw new ApiError(
+      400,
+      "Minimum order value cannot be above free delivery order value",
+    );
+  }
 
   const category = await marketPlaceCategoryModel.create({
     name: normalisedName,
@@ -1385,6 +1439,7 @@ const createCategory = asyncHandler(async (req, res) => {
     priority,
     image: imageUrl,
     createdBy: req.user.id,
+    pricingSettings,
   });
 
   await deletedCategoriesCached();
@@ -1427,7 +1482,9 @@ const getAllCategories = asyncHandler(async (req, res) => {
         path: "createdBy",
         select: "username",
       })
-      .select("name description image priority isActive createdBy createdAt")
+      .select(
+        "name description image priority isActive createdBy createdAt pricingSettings",
+      )
       .skip(skip)
       .limit(limitNumber),
 
@@ -1475,7 +1532,7 @@ const getCategoryById = asyncHandler(async (req, res) => {
       select: "username",
     })
     .select(
-      "name description image priority isActive createdBy createdAt updatedAt",
+      "name description image priority isActive createdBy createdAt updatedAt pricingSettings",
     );
   if (!category) {
     throw new ApiError(404, "Category not found");
@@ -1523,6 +1580,21 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (imageLocalPath) {
     const imageUrl = await uploadOnCloudinary(imageLocalPath);
     category.image = imageUrl;
+  }
+
+  const updatedPricingSettings = buildCategoryPricingSettings(
+    req.body,
+    category.pricingSettings,
+  );
+  if (updatedPricingSettings) {
+    if (updatedPricingSettings.freeDeliveryAbove < updatedPricingSettings.minimumOrderValue) {
+      throw new ApiError(
+        400,
+        "Minimum order value cannot be above free delivery order value",
+      );
+    }
+
+    category.pricingSettings = updatedPricingSettings;
   }
 
   await category.save();

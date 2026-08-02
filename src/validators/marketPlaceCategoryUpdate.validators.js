@@ -31,7 +31,37 @@ const marketPlaceCategoryUpdateValidationRules = [
             .optional()
             .isInt({min:1})
             .withMessage('Minimum priority should be 1'),
-    
+
+    body("deliveryCharge")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Delivery charge cannot be negative"),
+
+    body("freeDeliveryAbove")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Free delivery amount cannot be negative"),
+
+    body("minimumOrderValue")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Minimum order value cannot be negative"),
+
+    body("gstPercentage")
+        .optional()
+        .isFloat({ min: 0, max: 100 })
+        .withMessage("GST percentage should be between 0 and 100"),
+
+    body("packagingCharge")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Packaging charges cannot be negative"),
+
+    body("platformCharge")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Platform charges cannot be negative"),
+
         validateResult
 ]
 

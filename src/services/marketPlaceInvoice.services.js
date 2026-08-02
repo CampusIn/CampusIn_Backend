@@ -39,6 +39,14 @@ const getInvoiceSummary = (order) => ({
   total: order.pricing?.finalAmount ?? 0,
 });
 
+const getPricingPolicySnapshot = (order) => {
+  if (order.pricingSettingsSnapshot) {
+    return order.pricingSettingsSnapshot;
+  }
+
+  return null;
+};
+
 const generateMarketPlaceInvoicePDF = async (order) => {
   const doc = new PDFDocument({
     size: "A4",
@@ -62,6 +70,7 @@ const generateMarketPlaceInvoicePDF = async (order) => {
     const customer =
       order.user && typeof order.user === "object" ? order.user : {};
     const summary = getInvoiceSummary(order);
+    const pricingPolicy = getPricingPolicySnapshot(order);
 
     doc.rect(0, 0, pageWidth, pageHeight).fill("#f5f5f5");
     doc.roundedRect(left, top, receiptWidth, bottom - top, 8).fill("#ffffff");
@@ -154,6 +163,18 @@ const generateMarketPlaceInvoicePDF = async (order) => {
       y += 16;
     } else {
       y += 2;
+    }
+
+    if (pricingPolicy) {
+      doc.text(
+        `Pricing Policy: MOV ${formatMoney(pricingPolicy.minimumOrderValue)} | Free Delivery Above ${formatMoney(pricingPolicy.freeDeliveryAbove)} | GST ${pricingPolicy.gstPercentage}%`,
+        left + 14,
+        y,
+        {
+          width: receiptWidth - 28,
+        },
+      );
+      y += 16;
     }
 
     drawLine(doc, left + 14, y, right - 14);

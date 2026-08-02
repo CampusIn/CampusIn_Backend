@@ -6,7 +6,6 @@ import marketCartModel from "../models/marketPlaceCart.models.js";
 import marketPlaceProductsModel from "../models/marketPlaceProducts.models.js";
 import marketPlaceOrderModel from "../models/marketPlaceOrders.models.js";
 import marketPlaceCategoryModel from "../models/marketPlaceCategory.models.js";
-import platformSettingsModel from "../models/platformSettings.models.js";
 import couponModel from "../models/coupon.models.js";
 import couponUsageModel from "../models/couponUsage.models.js";
 import generateOrderNumber from "../utils/orderNumber.utils.js";
@@ -245,15 +244,19 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     return total + item.priceAtPurchase * item.quantity;
   }, 0);
 
-  const platformSettings = await platformSettingsModel.findOne();
-  if (!platformSettings) {
-    throw new ApiError(404, "Platform settings not found");
-  }
-
-  if (subTotal < platformSettings.minimumOrderValue) {
+  if (!category.pricingSettings) {
     throw new ApiError(
       400,
-      `Minimum order value is ${platformSettings.minimumOrderValue}`,
+      "Marketplace pricing settings are not configured for this category",
+    );
+  }
+
+  const pricingSettings = category.pricingSettings;
+
+  if (subTotal < pricingSettings.minimumOrderValue) {
+    throw new ApiError(
+      400,
+      `Minimum order value is ${pricingSettings.minimumOrderValue}`,
     );
   }
 
@@ -263,14 +266,14 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     subTotal,
   );
   const pricingBase = subTotal - couponDiscount;
-  const gstPercentage = platformSettings.gstPercentage;
+  const gstPercentage = pricingSettings.gstPercentage;
   const gstAmount = Math.round((pricingBase * gstPercentage) / 100);
   const deliveryCharge =
-    pricingBase >= platformSettings.freeDeliveryAbove
+    pricingBase >= pricingSettings.freeDeliveryAbove
       ? 0
-      : platformSettings.deliveryCharge;
-  const packagingCharge = platformSettings.packagingCharge;
-  const platformCharge = platformSettings.platformCharge || 0;
+      : pricingSettings.deliveryCharge;
+  const packagingCharge = pricingSettings.packagingCharge;
+  const platformCharge = pricingSettings.platformCharge || 0;
   const finalAmount =
     pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
@@ -298,6 +301,14 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
             platformCharge,
             couponDiscount,
             finalAmount,
+          },
+          pricingSettingsSnapshot: {
+            deliveryCharge: pricingSettings.deliveryCharge,
+            freeDeliveryAbove: pricingSettings.freeDeliveryAbove,
+            minimumOrderValue: pricingSettings.minimumOrderValue,
+            gstPercentage: pricingSettings.gstPercentage,
+            packagingCharge: pricingSettings.packagingCharge,
+            platformCharge,
           },
           deliveryAddressSnapShot: deliveryAddress,
           customerPhone,

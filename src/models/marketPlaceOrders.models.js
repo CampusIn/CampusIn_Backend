@@ -78,6 +78,44 @@ const pricingSnapShotSchema = new mongoose.Schema(
   },
 );
 
+const pricingSettingsSnapshotSchema = new mongoose.Schema(
+  {
+    deliveryCharge: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    freeDeliveryAbove: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    minimumOrderValue: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    gstPercentage: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    packagingCharge: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    platformCharge: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const marketPlacOrderSchema = new mongoose.Schema(
   {
     user: {
@@ -97,6 +135,7 @@ const marketPlacOrderSchema = new mongoose.Schema(
     items: [orderItemSchema],
 
     pricing: pricingSnapShotSchema,
+    pricingSettingsSnapshot: pricingSettingsSnapshotSchema,
 
     deliveryAddressSnapShot: {
       type: String,
