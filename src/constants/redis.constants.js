@@ -59,6 +59,15 @@ export const REDIS_KEYS = {
     },
     USER_MARKETPLACE_ORDER_HISTORY_PATTERN: function userMarketplaceOrderHistoryPattern(userId) {
         return `market-place:orders:user:${userId}:*`
+    },
+    USER_REPAIR_REQUESTS: function userRepairRequests(userId, page, limit, search = "all", status = "all") {
+        return `repair-requests:user:${userId}:page:${page}:limit:${limit}:search:${search || "all"}:status:${status || "all"}`
+    },
+    USER_REPAIR_REQUESTS_PATTERN: function userRepairRequestsPattern(userId) {
+        return `repair-requests:user:${userId}:*`
+    },
+    USER_REPAIR_REQUEST_DETAILS: function userRepairRequestDetails(userId, requestId) {
+        return `repair-requests:user:${userId}:request:${requestId}`
     }
 }
 

@@ -41,6 +41,10 @@ import { deleteProductCached } from "../services/marketPlaceProductsCached.servi
 import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 import { deleteCouponCached } from "../services/couponCached.services.js";
 import {
+  deleteUserRepairRequestByIdCached,
+  deleteUserRepairRequestsCached,
+} from "../services/repairRequestCached.services.js";
+import {
   getMarketplaceOverviewPipeline,
   getMarketplaceOrderStatusPipeline,
   getMarketplaceRevenueChartPipeline,
@@ -2320,6 +2324,15 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
   repairRequest.requestStatus = "PRICE_SENT";
   await repairRequest.save();
 
+  const requestOwnerId = repairRequest.user._id.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
+
   try {
     await emailServices.queueRepairRequestEstimateEmail({
       to: repairRequest.user.email,
@@ -2381,6 +2394,15 @@ const assignRepairPartnerAdmin = asyncHandler(async (req, res) => {
   repairRequest.requestStatus = "FORWARDED";
   await repairRequest.save();
 
+  const requestOwnerId = repairRequest.user.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
+
   await repairRequest.populate({
     path: "repairPartner",
     select: "name phoneNumber specialisations isActive",
@@ -2427,6 +2449,15 @@ const completeRepairRequestAdmin = asyncHandler(async (req, res) => {
     repairRequest.adminRemarks = adminRemarks;
   }
   await repairRequest.save();
+
+  const requestOwnerId = repairRequest.user.toString();
+  await Promise.all([
+    deleteUserRepairRequestsCached(requestOwnerId),
+    deleteUserRepairRequestByIdCached({
+      userId: requestOwnerId,
+      requestId: repairRequest._id.toString(),
+    }),
+  ]);
 
   return res
     .status(200)

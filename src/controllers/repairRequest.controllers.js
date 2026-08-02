@@ -8,6 +8,14 @@ import mongoose from "mongoose";
 import userModel from "../models/user.models.js";
 import emailServices from "../services/emailQueue.services.js";
 import {
+  deleteUserRepairRequestByIdCached,
+  deleteUserRepairRequestsCached,
+  getUserRepairRequestByIdCached,
+  getUserRepairRequestsCached,
+  setUserRepairRequestByIdCached,
+  setUserRepairRequestsCached,
+} from "../services/repairRequestCached.services.js";
+import {
   generateAdminRepairRequestSubmittedHTML,
   generateAdminRepairPriceDecisionHTML,
 } from "../utils/utils.js";
@@ -68,6 +76,8 @@ const createRepairRequest = asyncHandler(async (req, res) => {
     );
   }
 
+  await deleteUserRepairRequestsCached(req.user.id);
+
   return res
     .status(201)
     .json(
@@ -114,6 +124,24 @@ const getAllRepairRequests = asyncHandler(async (req, res) => {
     filter.requestStatus = status;
   }
 
+  const cacheParams = {
+    userId: req.user.id,
+    page: pageNumber,
+    limit: limitNumber,
+    search,
+    status,
+  };
+
+  const cachedData = await getUserRepairRequestsCached(cacheParams);
+  if (cachedData) {
+    const message =
+      cachedData.repairRequests.length === 0
+        ? "No repair requests to show"
+        : "Repair requests fetched successfully";
+
+    return res.status(200).json(new ApiResponse(200, message, cachedData));
+  }
+
   const [repairRequests, totalRequests] = await Promise.all([
     repairRequestModel
       .find(filter)
@@ -130,37 +158,45 @@ const getAllRepairRequests = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(totalRequests / limitNumber);
 
+  const responseData = {
+    repairRequests,
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages,
+      totalRequests,
+    },
+  };
+
+  await setUserRepairRequestsCached(cacheParams, responseData);
+
   if (!repairRequests || repairRequests.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No repair requests to show", {
-        repairRequests,
-        pagination: {
-          page: pageNumber,
-          limit: limitNumber,
-          totalPages,
-          totalRequests,
-        },
-      }),
-    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No repair requests to show", responseData));
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, "Repair requests fetched successfully", {
-      repairRequests,
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        totalPages,
-        totalRequests,
-      },
-    }),
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Repair requests fetched successfully", responseData),
+    );
 });
 
 const getRequestById = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(requestId)) {
     throw new ApiError(400, "Invalid request ID");
+  }
+
+  const cacheParams = { userId: req.user.id, requestId };
+  const cachedData = await getUserRepairRequestByIdCached(cacheParams);
+  if (cachedData) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Repair details fetched successfully", cachedData),
+      );
   }
 
   const repairRequest = await repairRequestModel
@@ -180,6 +216,8 @@ const getRequestById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Repair request not found");
   }
 
+  await setUserRepairRequestByIdCached(cacheParams, repairRequest);
+
   return res
     .status(200)
     .json(
@@ -197,7 +235,7 @@ const customerDecision = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(requestId)) {
     throw new ApiError(400, "Invalid request ID");
   }
-const allowedStatus = ["ACCEPTED","REJECTED"]
+  const allowedStatus = ["ACCEPTED", "REJECTED"];
   if (!allowedStatus.includes(requestStatus)) {
     throw new ApiError(400, "Invalid request status");
   }
@@ -220,6 +258,11 @@ const allowedStatus = ["ACCEPTED","REJECTED"]
   repairRequest.requestStatus = requestStatus;
   repairRequest.acceptedAt = new Date();
   await repairRequest.save();
+
+  await Promise.all([
+    deleteUserRepairRequestsCached(req.user.id),
+    deleteUserRepairRequestByIdCached({ userId: req.user.id, requestId }),
+  ]);
 
   try {
     const admins = await userModel.find({ role: "admin" }).select("email username");
