@@ -591,10 +591,16 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new ApiError(400, "Inavlid Order Id");
   }
-  const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "DELIVERED", "REJECTED"];
+  const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "REJECTED"];
 
   const isValidStatus = allowedStatus.includes(orderStatus);
   if (!isValidStatus) {
+    if (orderStatus === "DELIVERED") {
+      throw new ApiError(
+        403,
+        "Only delivery partner can mark order as DELIVERED",
+      );
+    }
     throw new ApiError(400, "Invalid Order status");
   }
 
