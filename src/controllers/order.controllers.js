@@ -514,7 +514,7 @@ const getVendorOrder = asyncHandler(async (req, res) => {
 
 const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached()
-  if(cachedSettings){
+  if(cachedSettings && cachedSettings.platformCharge !== undefined){
     return res
     .status(200)
     .json(new ApiResponse(200, "Order details fetched successfuly", cachedSettings));
@@ -527,9 +527,10 @@ const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
   if (!platformSettings) {
     throw new ApiError(404, 'Platform settings not found')
   }
-  await setPlatformSettingsCached(platformSettings)
+  const plainSettings = platformSettings.toObject()
+  await setPlatformSettingsCached(plainSettings)
 
-  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', platformSettings))
+  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', plainSettings))
 });
 
 const getSingleVendorOrder = asyncHandler(async (req, res) => {
@@ -802,7 +803,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
 
 const getPlatformSettingsUser = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached()
-  if(cachedSettings){
+  if(cachedSettings && cachedSettings.platformCharge !== undefined){
     return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', cachedSettings))
   }
   const platformSettings = await platformSettingsModel
@@ -812,9 +813,10 @@ const getPlatformSettingsUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Platform settings not found')
   }
 
-  await setPlatformSettingsCached(platformSettings)
+  const plainSettings = platformSettings.toObject()
+  await setPlatformSettingsCached(plainSettings)
 
-  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', platformSettings))
+  return res.status(200).json(new ApiResponse(200, 'Platform settings fetched successfully', plainSettings))
 })
 
 export default {

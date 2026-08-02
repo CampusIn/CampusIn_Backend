@@ -467,14 +467,23 @@ const editSettings = asyncHandler(async (req, res) => {
   await settings.save();
   await deletePlatformSettingsCached();
 
+  const refreshedSettings = await platformSettingsModel
+    .findById(settings._id)
+    .select("-updatedAt -createdAt -__v")
+    .lean();
+
+  if (refreshedSettings) {
+    await setPlatformSettingsCached(refreshedSettings);
+  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Settings updated successfully", settings));
+    .json(new ApiResponse(200, "Settings updated successfully", refreshedSettings || settings));
 });
 
 const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
   const cachedSettings = await platformSettingsCached();
-  if (cachedSettings) {
+  if (cachedSettings && cachedSettings.platformCharge !== undefined) {
     return res
       .status(200)
       .json(
@@ -491,7 +500,9 @@ const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
   if (!platformSettings) {
     throw new ApiError(404, "Platform settings not found");
   }
-  await setPlatformSettingsCached(platformSettings);
+
+  const plainSettings = platformSettings.toObject();
+  await setPlatformSettingsCached(plainSettings);
 
   return res
     .status(200)
@@ -499,7 +510,7 @@ const getPlatformSettingsAdmin = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         "Platform settings fetched successfully",
-        platformSettings,
+        plainSettings,
       ),
     );
 });
