@@ -34,6 +34,7 @@ const getInvoiceSummary = (order) => ({
   gstCharges: order.pricing?.gstAmount ?? 0,
   deliveryCharges: order.pricing?.deliveryCharge ?? 0,
   packagingCharges: order.pricing?.packagingCharge ?? 0,
+  platformCharges: order.pricing?.platformCharge ?? 0,
   discountAmount: order.pricing?.couponDiscount ?? 0,
   total: order.pricing?.finalAmount ?? 0,
 });
@@ -230,6 +231,18 @@ const generateMarketPlaceInvoicePDF = async (order) => {
       rightText(
         doc,
         formatMoney(summary.packagingCharges),
+        summaryValueX,
+        y,
+        summaryWidth,
+      );
+      y += 15;
+    }
+
+    if (summary.platformCharges > 0) {
+      doc.text("Platform Fee:", summaryLabelX, y, { width: 70, align: "right" });
+      rightText(
+        doc,
+        formatMoney(summary.platformCharges),
         summaryValueX,
         y,
         summaryWidth,

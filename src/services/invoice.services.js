@@ -30,6 +30,11 @@ const getInvoiceSummary = (order) => {
     order.invoice?.packagingCharges ??
     order.packagingCharge ??
     0;
+  const platformCharges =
+    order.pricing?.platformCharge ??
+    order.invoice?.platformCharges ??
+    order.platformCharge ??
+    0;
   const discountAmount =
     order.pricing?.couponDiscount ?? order.discountAmount ?? 0;
   const total =
@@ -40,6 +45,7 @@ const getInvoiceSummary = (order) => {
     gstCharges,
     deliveryCharges,
     packagingCharges,
+    platformCharges,
     discountAmount,
     total,
   };
@@ -258,6 +264,18 @@ const generateInvoicePDF = async (order) => {
       rightText(
         doc,
         formatMoney(summary.packagingCharges),
+        summaryValueX,
+        y,
+        summaryWidth,
+      );
+      y += 15;
+    }
+
+    if (summary.platformCharges > 0) {
+      doc.text("Platform Fee:", summaryLabelX, y, { width: 70, align: "right" });
+      rightText(
+        doc,
+        formatMoney(summary.platformCharges),
         summaryValueX,
         y,
         summaryWidth,

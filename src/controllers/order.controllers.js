@@ -194,6 +194,7 @@ const createOrder = asyncHandler(async (req, res) => {
   const gstAmount = Math.round((pricingBase * gstPercentage) / 100);
   let deliveryCharge = platformSettings.deliveryCharge;
   const packagingCharge = platformSettings.packagingCharge;
+  const platformCharge = platformSettings.platformCharge || 0;
   const freeDeliveryAbove = platformSettings.freeDeliveryAbove;
 
   if (freeDeliveryAbove <= pricingBase) {
@@ -201,7 +202,7 @@ const createOrder = asyncHandler(async (req, res) => {
   }
 
   const finalAmount =
-    pricingBase + gstAmount + deliveryCharge + packagingCharge;
+    pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
   const session = await mongoose.startSession();
   let order;
@@ -225,6 +226,7 @@ const createOrder = asyncHandler(async (req, res) => {
             gstAmount,
             deliveryCharge,
             packagingCharge,
+            platformCharge,
             couponDiscount,
             finalAmount,
           },
@@ -759,6 +761,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   const gstAmount = Math.round((subTotalAfterDiscount * gstPercentage) / 100);
   let deliveryCharge = platformSettings.deliveryCharge;
   const packagingCharge = platformSettings.packagingCharge;
+  const platformCharge = platformSettings.platformCharge || 0;
   const freeDeliveryAbove = platformSettings.freeDeliveryAbove;
 
   if (freeDeliveryAbove <= subTotalAfterDiscount) {
@@ -766,7 +769,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   }
 
   const finalAmount =
-    subTotalAfterDiscount + gstAmount + deliveryCharge + packagingCharge;
+    subTotalAfterDiscount + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
   return res.status(200).json(
     new ApiResponse(200, "Coupon applied successfully", {
@@ -784,6 +787,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
         gstAmount,
         packagingCharge,
         deliveryCharge,
+        platformCharge,
         finalAmount,
       },
     }),

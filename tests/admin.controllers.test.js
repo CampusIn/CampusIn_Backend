@@ -243,6 +243,7 @@ const createOrder = async (user, restaurant, overrides = {}) => {
       gstAmount: 4,
       deliveryCharge: 10,
       packagingCharge: 5,
+      platformCharge: 0,
       couponDiscount: 0,
       finalAmount: 99,
     },
@@ -310,6 +311,7 @@ const createMarketplaceOrder = async (user, category, product, overrides = {}) =
       gstAmount: 6,
       deliveryCharge: 10,
       packagingCharge: 0,
+      platformCharge: 0,
       couponDiscount: 0,
       finalAmount: 136,
     },
@@ -736,6 +738,7 @@ describe("admin controller routes", () => {
       platformSettingsCachedMock.mockResolvedValueOnce({
         deliveryCharge: 10,
         minimumOrderValue: 50,
+        platformCharge: 5,
       });
 
       // Act
@@ -754,6 +757,7 @@ describe("admin controller routes", () => {
       expect(cachedResponse.body.data).toMatchObject({
         deliveryCharge: 10,
         minimumOrderValue: 50,
+        platformCharge: 5,
       });
     });
 
@@ -770,6 +774,7 @@ describe("admin controller routes", () => {
           deliveryCharge: 20,
           minimumOrderValue: 100,
           freeDeliveryAbove: 500,
+          platformCharge: 7,
         });
 
       // Assert
@@ -779,6 +784,7 @@ describe("admin controller routes", () => {
         deliveryCharge: 20,
         minimumOrderValue: 100,
         freeDeliveryAbove: 500,
+        platformCharge: 7,
       });
       expect(deletePlatformSettingsCachedMock).toHaveBeenCalledTimes(1);
     });

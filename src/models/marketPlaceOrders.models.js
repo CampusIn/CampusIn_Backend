@@ -57,6 +57,11 @@ const pricingSnapShotSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    platformCharge: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     couponDiscount: {
       type: Number,
       required: true,

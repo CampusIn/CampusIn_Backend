@@ -33,6 +33,12 @@ const platformSettingsSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Packaging charges cannot be negative"],
     },
+    platformCharge: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: [0, "Platform charges cannot be negative"],
+    },
     supportPhone: {
       type: String,
       trim: true,

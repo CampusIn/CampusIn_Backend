@@ -264,8 +264,9 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
       ? 0
       : platformSettings.deliveryCharge;
   const packagingCharge = platformSettings.packagingCharge;
+  const platformCharge = platformSettings.platformCharge || 0;
   const finalAmount =
-    pricingBase + gstAmount + deliveryCharge + packagingCharge;
+    pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
   const session = await mongoose.startSession();
   let order;
@@ -288,6 +289,7 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
             gstAmount,
             deliveryCharge,
             packagingCharge,
+            platformCharge,
             couponDiscount,
             finalAmount,
           },
