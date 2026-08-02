@@ -1,5 +1,6 @@
 import { REDIS_KEYS } from "../constants/redis.constants.js";
 import redisServices from "./redis.services.js";
+import { deleteMarketPlaceProductSuggestionsCached } from "./marketPlaceProductSuggestionsCached.services.js";
 
 const normaliseCacheValue = (value) => {
     if (value === undefined || value === null || value === "") {
@@ -59,7 +60,10 @@ const deleteProductCached = async (id) =>{
     if(id){
         await redisServices.remove(REDIS_KEYS.MARKETPLACE_PRODUCTS_ID(id))
     }
-    await redisServices.removeByPattern(REDIS_KEYS.MARKETPLACE_PRODUCTS_PATTERN)
+    await Promise.all([
+        redisServices.removeByPattern(REDIS_KEYS.MARKETPLACE_PRODUCTS_PATTERN),
+        deleteMarketPlaceProductSuggestionsCached(),
+    ])
 }
 
 export {

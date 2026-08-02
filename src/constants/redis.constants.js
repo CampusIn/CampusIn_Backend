@@ -29,6 +29,10 @@ export const REDIS_KEYS = {
         return `market-place:products:page:${page}:limit:${limit}:search:${search || "all"}:category:${category || "all"}:condition:${condition || "all"}:minPrice:${minPrice || "all"}:maxPrice:${maxPrice || "all"}`
     },
     MARKETPLACE_PRODUCTS_PATTERN:"market-place:products:page:*",
+    MARKETPLACE_PRODUCTS_SUGGESTIONS: function marketPlaceProductsSuggestions(query) {
+        return `market-place:products:suggestions:query:${query || "all"}`
+    },
+    MARKETPLACE_PRODUCTS_SUGGESTIONS_PATTERN:"market-place:products:suggestions:*",
     CATEGORIES: function categories(page, limit, search = "") {
         return `categories:page:${page}:limit:${limit}:search:${search || "all"}`
     },
@@ -43,6 +47,18 @@ export const REDIS_KEYS = {
 
     MENU_KEY: function restaurantMenu(restaurantId){
         return `restaurant:${restaurantId}:menu`
+    },
+    USER_FOOD_ORDER_HISTORY: function userFoodOrderHistory(userId, page, limit) {
+        return `orders:user:${userId}:page:${page}:limit:${limit}`
+    },
+    USER_FOOD_ORDER_HISTORY_PATTERN: function userFoodOrderHistoryPattern(userId) {
+        return `orders:user:${userId}:*`
+    },
+    USER_MARKETPLACE_ORDER_HISTORY: function userMarketplaceOrderHistory(userId, page, limit) {
+        return `market-place:orders:user:${userId}:page:${page}:limit:${limit}`
+    },
+    USER_MARKETPLACE_ORDER_HISTORY_PATTERN: function userMarketplaceOrderHistoryPattern(userId) {
+        return `market-place:orders:user:${userId}:*`
     }
 }
 

@@ -15,6 +15,10 @@ import {
   getProductsCached,
   setProductsCached,
 } from "../services/marketPlaceProductsCached.services.js";
+import {
+  getMarketPlaceProductSuggestionsCached,
+  setMarketPlaceProductSuggestionsCached,
+} from "../services/marketPlaceProductSuggestionsCached.services.js";
 
 const getAllCategoriesByUser = asyncHandler(async (req, res) => {
   const { search, page = 1, limit = 5 } = req.query;
@@ -216,8 +220,58 @@ const getProductsByIdUser = asyncHandler(async(req,res)=>{
 
 });
 
+const getMarketPlaceProductSuggestions = asyncHandler(async (req, res) => {
+  const { q } = req.query;
+  if (!q || !q.trim()) {
+    return res.status(200).json(new ApiResponse(200, "No query provided", []));
+  }
+
+  const cachedSuggestions = await getMarketPlaceProductSuggestionsCached(q);
+  if (cachedSuggestions) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          "Marketplace product suggestions fetched successfully",
+          cachedSuggestions,
+        ),
+      );
+  }
+
+  const suggestions = await marketPlaceProductsModel
+    .find({
+      name: { $regex: q, $options: "i" },
+      isActive: true,
+      stock: { $gt: 0 },
+    })
+    .select("_id name images price condition category")
+    .limit(5);
+
+  if (suggestions.length === 0) {
+    await setMarketPlaceProductSuggestionsCached(q, []);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No suggestions found", []));
+  }
+
+  await setMarketPlaceProductSuggestionsCached(q, suggestions);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Marketplace product suggestions fetched successfully",
+        suggestions,
+      ),
+    );
+});
+
 export default {
   getAllCategoriesByUser,
   getAllProductsByUser,
-  getProductsByIdUser
+  getProductsByIdUser,
+  getMarketPlaceProductSuggestions,
 };

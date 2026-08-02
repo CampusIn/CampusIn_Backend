@@ -13,6 +13,12 @@ import generateOrderNumber from "../utils/orderNumber.utils.js";
 import userModel from "../models/user.models.js";
 import emailServices from "../services/emailQueue.services.js";
 import { generateAdminMarketplaceOrderHTML } from "../utils/utils.js";
+import {
+  getMarketplaceOrderHistoryCached,
+  setMarketplaceOrderHistoryCached,
+  deleteMarketplaceOrderHistoryCached,
+} from "../services/marketPlaceOrderHistoryCached.services.js";
+import { deleteProductCached } from "../services/marketPlaceProductsCached.services.js";
 
 const allowedPaymentMethods = ["COD", "PAY_ON_PICKUP"];
 
@@ -313,6 +319,11 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
+  await Promise.all([
+    ...orderItems.map((item) => deleteProductCached(item.product)),
+    deleteMarketplaceOrderHistoryCached(req.user.id),
+  ]);
+
   try {
     const admins = await userModel.find({ role: "admin" }).select("email username");
 
@@ -357,17 +368,36 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Invalid page number or limit number");
   }
 
+  const cacheParams = {
+    userId: req.user.id,
+    page: pageNumber,
+    limit: limitNumber,
+  };
+  const cachedData = await getMarketplaceOrderHistoryCached(cacheParams);
+  if (cachedData) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        "Marketplace order history fetched successfuly",
+        cachedData,
+      ),
+    );
+  }
+
   const skip = (pageNumber - 1) * limitNumber;
   const totalOrders = await marketPlaceOrderModel.countDocuments({
     user: req.user.id,
   });
 
   if (totalOrders === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-      }),
-    );
+    const responseData = {
+      orders: [],
+    };
+    await setMarketplaceOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
   }
 
   const orders = await marketPlaceOrderModel
@@ -381,29 +411,40 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(totalOrders / limitNumber);
   if (orders.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-        pagination: {
-          page: pageNumber,
-          limit: limitNumber,
-          totalOrders,
-          totalPages,
-        },
-      }),
-    );
-  }
-
-  return res.status(200).json(
-    new ApiResponse(200, "Marketplace order history fetched successfuly", {
-      orders,
+    const responseData = {
+      orders: [],
       pagination: {
         page: pageNumber,
         limit: limitNumber,
         totalOrders,
         totalPages,
       },
-    }),
+    };
+    await setMarketplaceOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
+  }
+
+  const responseData = {
+    orders,
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      totalOrders,
+      totalPages,
+    },
+  };
+
+  await setMarketplaceOrderHistoryCached(cacheParams, responseData);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      "Marketplace order history fetched successfuly",
+      responseData,
+    ),
   );
 });
 
@@ -483,6 +524,11 @@ const cancelMarketPlaceOrder = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  await Promise.all([
+    ...order.items.map((item) => deleteProductCached(item.product)),
+    deleteMarketplaceOrderHistoryCached(req.user.id),
+  ]);
 
   return res
     .status(200)

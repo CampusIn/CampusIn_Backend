@@ -15,6 +15,11 @@ import emailServices from "../services/emailQueue.services.js";
 import { generateVendorNewOrderHTML } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
 import { getCouponCached, setCouponCached, deleteCouponCached } from "../services/couponCached.services.js";
+import {
+  getOrderHistoryCached,
+  setOrderHistoryCached,
+  deleteOrderHistoryCached,
+} from "../services/orderHistoryCached.services.js";
 
 
 const validateCartItems = (cartItems) => {
@@ -275,6 +280,8 @@ const createOrder = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
+  await deleteOrderHistoryCached(req.user.id);
+
   try {
     const vendorUser = await userModel
       .findById(restaurant.owner)
@@ -313,14 +320,30 @@ const getAllOrders = asyncHandler(async (req, res) => {
   if (pageNumber < 1 || limitNumber < 1) {
     throw new ApiError(404, "Invalid page number or limit number");
   }
+
+  const cacheParams = {
+    userId: req.user.id,
+    page: pageNumber,
+    limit: limitNumber,
+  };
+  const cachedData = await getOrderHistoryCached(cacheParams);
+  if (cachedData) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Order history fetched successfuly", cachedData));
+  }
+
   const skip = (pageNumber - 1) * limitNumber;
   const totalOrders = await orderModel.countDocuments({ user: req.user.id });
   if (totalOrders === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-      }),
-    );
+    const responseData = {
+      orders: [],
+    };
+    await setOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
   }
   const orders = await orderModel
     .find(
@@ -333,29 +356,36 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(totalOrders / limitNumber);
   if (orders.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "No order found", {
-        orders: [],
-        pagination: {
-          page: pageNumber,
-          limit: limitNumber,
-          totalOrders,
-          totalPages,
-        },
-      }),
-    );
-  }
-
-  return res.status(200).json(
-    new ApiResponse(200, "Order history fetched successfuly", {
-      orders,
+    const responseData = {
+      orders: [],
       pagination: {
         page: pageNumber,
         limit: limitNumber,
         totalOrders,
         totalPages,
       },
-    }),
+    };
+    await setOrderHistoryCached(cacheParams, responseData);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No order found", responseData));
+  }
+
+  const responseData = {
+    orders,
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      totalOrders,
+      totalPages,
+    },
+  };
+
+  await setOrderHistoryCached(cacheParams, responseData);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Order history fetched successfuly", responseData),
   );
 });
 
@@ -416,6 +446,8 @@ const cancelOrder = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  await deleteOrderHistoryCached(req.user.id);
 
   return res
     .status(200)
@@ -647,6 +679,8 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  await deleteOrderHistoryCached(order.user.toString());
 
   return res.status(200).json(
     new ApiResponse(200, "Order status updated successfuly", {

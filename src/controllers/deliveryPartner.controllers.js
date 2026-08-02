@@ -8,6 +8,8 @@ import marketPlaceOrderModel from "../models/marketPlaceOrders.models.js";
 import mongoose from "mongoose";
 import emailServices from "../services/emailQueue.services.js";
 import { generateDeliveryAssignmentHTML } from "../utils/utils.js";
+import { deleteOrderHistoryCached } from "../services/orderHistoryCached.services.js";
+import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 
 const isOrderAssignedToPartner = (assignedPartnerId, deliveryPartner) => {
   if (!assignedPartnerId || !deliveryPartner) {
@@ -303,6 +305,7 @@ const pickUpOrder = asyncHandler(async (req, res) => {
 
   order.orderStatus = "OUT_FOR_DELIVERY";
   await order.save();
+  await deleteOrderHistoryCached(order.user.toString());
 
   const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
 
@@ -342,6 +345,7 @@ const deliverOrder = asyncHandler(async (req, res) => {
   deliveryPartner.isAvailable = true;
 
   await Promise.all([order.save(), deliveryPartner.save()]);
+  await deleteOrderHistoryCached(order.user.toString());
 
   const normalizedOrder = normalizeOrderPricingForDeliveryPartner(order);
 
@@ -457,6 +461,7 @@ const updateOrderStatus = asyncHandler(async(req,res)=>{
   order.orderStatus = "DELIVERED"
   deliveryPartner.isAvailable = true
   await Promise.all([order.save(), deliveryPartner.save()])
+  await deleteMarketplaceOrderHistoryCached(order.user.toString())
 
   return res.status(200).json(new ApiResponse(200,"Order status updated successfully"))
 })

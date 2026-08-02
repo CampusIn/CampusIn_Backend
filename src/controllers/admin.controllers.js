@@ -38,6 +38,7 @@ import { deleteAnnouncementsCached } from "../services/announcementsCached.servi
 import { deletedCategoriesCached } from "../services/categoriesCached.services.js";
 import { deleteRestaurantCached } from "../services/restaurantCached.services.js";
 import { deleteProductCached } from "../services/marketPlaceProductsCached.services.js";
+import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 import { deleteCouponCached } from "../services/couponCached.services.js";
 import {
   getMarketplaceOverviewPipeline,
@@ -2018,7 +2019,9 @@ const updateMarketPlaceOrderStatusAdmin = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-    if (["CANCELLED", "REJECTED"].includes(orderStatus)) {
+    const shouldRestoreStock = ["CANCELLED", "REJECTED"].includes(orderStatus);
+
+    if (shouldRestoreStock) {
       await restoreMarketOrderStock(order.items, session);
     }
 
@@ -2051,6 +2054,18 @@ const updateMarketPlaceOrderStatusAdmin = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  const cacheInvalidationTasks = [
+    deleteMarketplaceOrderHistoryCached(order.user.toString()),
+  ];
+
+  if (["CANCELLED", "REJECTED"].includes(orderStatus)) {
+    cacheInvalidationTasks.push(
+      ...order.items.map((item) => deleteProductCached(item.product)),
+    );
+  }
+
+  await Promise.all(cacheInvalidationTasks);
 
   return res.status(200).json(
     new ApiResponse(200, "Marketplace order status updated successfully", {
