@@ -320,6 +320,296 @@ const generateReminderHTML = (userName = "there") => {
     `;
 };
 
+const generateVendorNewOrderHTML = ({
+  vendorName = "there",
+  restaurantName,
+  orderNumber,
+  customerPhone,
+  totalAmount,
+}) => {
+  const campusInRed = "#b31522";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Order on CAMPUSIN</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">New order received</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">Hi ${vendorName},</p>
+                                <p style="margin:0 0 18px;">You have a new order for <strong>${restaurantName}</strong>.</p>
+                                <p style="margin:0 0 8px;"><strong>Order number:</strong> ${orderNumber}</p>
+                                <p style="margin:0 0 8px;"><strong>Customer phone:</strong> ${customerPhone}</p>
+                                <p style="margin:0 0 18px;"><strong>Total amount:</strong> Rs. ${totalAmount}</p>
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">Open Dashboard</a>
+                                </div>
+                                <p style="margin:0;">Team <strong>CAMPUSIN</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
+const generateAdminMarketplaceOrderHTML = ({
+  adminName = "there",
+  orderNumber,
+  categoryName,
+  customerPhone,
+  finalAmount,
+}) => {
+  const campusInRed = "#b31522";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Marketplace Order</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">New marketplace order placed</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">Hi ${adminName},</p>
+                                <p style="margin:0 0 18px;">A user has placed a new marketplace order.</p>
+                                <p style="margin:0 0 8px;"><strong>Order number:</strong> ${orderNumber}</p>
+                                <p style="margin:0 0 8px;"><strong>Category:</strong> ${categoryName}</p>
+                                <p style="margin:0 0 8px;"><strong>Customer phone:</strong> ${customerPhone}</p>
+                                <p style="margin:0 0 18px;"><strong>Total amount:</strong> Rs. ${finalAmount}</p>
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">Open Dashboard</a>
+                                </div>
+                                <p style="margin:0;">Team <strong>CAMPUSIN</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
+const generateDeliveryAssignmentHTML = ({
+  deliveryPartnerName = "there",
+  orderNumber,
+  pickupFrom,
+  customerPhone,
+  deliveryAddress,
+}) => {
+  const campusInRed = "#b31522";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Delivery Assignment</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">Delivery assigned to you</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">Hi ${deliveryPartnerName},</p>
+                                <p style="margin:0 0 8px;"><strong>Order number:</strong> ${orderNumber}</p>
+                                <p style="margin:0 0 8px;"><strong>Pickup from:</strong> ${pickupFrom}</p>
+                                <p style="margin:0 0 8px;"><strong>Customer phone:</strong> ${customerPhone}</p>
+                                <p style="margin:0 0 18px;"><strong>Delivery address:</strong> ${deliveryAddress}</p>
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">View Delivery Details</a>
+                                </div>
+                                <p style="margin:0;">Team <strong>CAMPUSIN</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
+const generateAdminRepairRequestSubmittedHTML = ({
+  adminName = "there",
+  requestNumber,
+  serviceType,
+  customerPhone,
+  pickupLocation,
+}) => {
+  const campusInRed = "#b31522";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Repair Request</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">New repair request submitted</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">Hi ${adminName},</p>
+                                <p style="margin:0 0 8px;"><strong>Request number:</strong> ${requestNumber}</p>
+                                <p style="margin:0 0 8px;"><strong>Service type:</strong> ${serviceType}</p>
+                                <p style="margin:0 0 8px;"><strong>Customer phone:</strong> ${customerPhone}</p>
+                                <p style="margin:0 0 18px;"><strong>Pickup location:</strong> ${pickupLocation}</p>
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">Open Dashboard</a>
+                                </div>
+                                <p style="margin:0;">Team <strong>CAMPUSIN</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
+const generateAdminRepairPriceDecisionHTML = ({
+  adminName = "there",
+  requestNumber,
+  requestStatus,
+  customerPhone,
+}) => {
+  const campusInRed = "#b31522";
+  const decisionLabel = requestStatus === "ACCEPTED" ? "accepted" : "rejected";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Repair Price Decision Updated</title>
+    </head>
+    <body style="margin:0; padding:0; background:#f7f7f8; font-family:Arial, Helvetica, sans-serif; color:#202124;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f8; margin:0; padding:36px 16px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff;">
+                        <tr>
+                            <td style="padding:32px 36px 18px;">
+                                <p style="margin:0; color:${campusInRed}; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:0.04em;">CAMPUSIN</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px;">
+                                <div style="height:1px; line-height:1px; background:#e8eaed;">&nbsp;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 36px 12px;">
+                                <h1 style="margin:0; color:#202124; font-size:28px; line-height:1.3; font-weight:700;">Customer ${decisionLabel} the repair estimate</h1>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 36px 32px; color:#3c4043; font-size:16px; line-height:1.75;">
+                                <p style="margin:0 0 18px;">Hi ${adminName},</p>
+                                <p style="margin:0 0 8px;"><strong>Request number:</strong> ${requestNumber}</p>
+                                <p style="margin:0 0 8px;"><strong>Customer phone:</strong> ${customerPhone}</p>
+                                <p style="margin:0 0 18px;"><strong>Decision:</strong> ${requestStatus}</p>
+                                <div style="text-align:center; margin:28px 0 30px;">
+                                    <a href="${config.CLIENT_URL}" style="display:inline-block; background:${campusInRed}; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; font-weight:700;">Open Dashboard</a>
+                                </div>
+                                <p style="margin:0;">Team <strong>CAMPUSIN</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+    `;
+};
+
 export {
   generateOTP,
   generateOtpHTML,
@@ -328,4 +618,9 @@ export {
   genereateWelcomeHtml,
   generateRepairRequestEstimateHTML,
   generateReminderHTML,
+  generateVendorNewOrderHTML,
+  generateAdminMarketplaceOrderHTML,
+  generateDeliveryAssignmentHTML,
+  generateAdminRepairRequestSubmittedHTML,
+  generateAdminRepairPriceDecisionHTML,
 };

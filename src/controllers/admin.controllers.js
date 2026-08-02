@@ -19,9 +19,12 @@ import { uploadOnCloudinary } from "../services/cloudinary.services.js";
 import topRestaurantsPipeline from "../utils/topRestaurant.utils.js";
 import generateInvoicePDF from "../services/invoice.services.js";
 import generateMarketPlaceInvoicePDF from "../services/marketPlaceInvoice.services.js";
-import { sendEmail } from "../services/email.services.js";
 import emailServices from "../services/emailQueue.services.js";
-import {generateReminderHTML} from "../utils/utils.js";
+import {
+  generateReminderHTML,
+  generateRepairRequestEstimateHTML,
+  generateDeliveryAssignmentHTML,
+} from "../utils/utils.js";
 import config from "../config/config.js";
 import {
   platformSettingsCached,
@@ -46,7 +49,6 @@ import {
 } from "../utils/marketPlaceAnalytics.utils.js";
 import repairPartnerModel from "../models/repairPartner.models.js";
 import repairRequestModel from "../models/repairRequest.models.js";
-import { generateRepairRequestEstimateHTML } from "../utils/utils.js";
 
 const REPAIR_REQUEST_STATUSES = [
   "SUBMITTED",
@@ -2076,8 +2078,12 @@ const assignMarketPlaceDeliveryPartnerAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Delivery partner already assigned");
   }
 
-  const deliveryPartner =
-    await deliveryPartnerModel.findById(deliveryPartnerId);
+  const deliveryPartner = await deliveryPartnerModel
+    .findById(deliveryPartnerId)
+    .populate({
+      path: "user",
+      select: "email username",
+    });
   if (!deliveryPartner) {
     throw new ApiError(404, "Delivery partner does not exist");
   }
@@ -2103,6 +2109,28 @@ const assignMarketPlaceDeliveryPartnerAdmin = asyncHandler(async (req, res) => {
     throw error;
   } finally {
     session.endSession();
+  }
+
+  try {
+    if (deliveryPartner.user?.email) {
+      await emailServices.queueDeliveryAssignmentEmail({
+        to: deliveryPartner.user.email,
+        subject: `New delivery assigned: ${order.orderNumber}`,
+        text: `You have been assigned a new delivery ${order.orderNumber} on CampusIn. Login to view delivery details.`,
+        deliveryAssignmentHtml: generateDeliveryAssignmentHTML({
+          deliveryPartnerName: deliveryPartner.user.username,
+          orderNumber: order.orderNumber,
+          pickupFrom: `Marketplace - ${order.categoryName}`,
+          customerPhone: order.customerPhone,
+          deliveryAddress: order.deliveryAddressSnapShot,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error(
+      "Failed to queue delivery assignment email for marketplace order:",
+      error.message,
+    );
   }
 
   return res

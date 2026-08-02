@@ -37,6 +37,9 @@ const emailQueueMock = {
   queueOTPEmail: jest.fn(),
   queueWelcomeEmail: jest.fn(),
   queueForgotEmail: jest.fn(),
+  queueVendorNewOrderEmail: jest.fn(),
+  queueAdminMarketplaceOrderEmail: jest.fn(),
+  queueDeliveryAssignmentEmail: jest.fn(),
 };
 const platformSettingsCachedMock = jest.fn();
 const setPlatformSettingsCachedMock = jest.fn();

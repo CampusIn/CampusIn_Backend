@@ -10,6 +10,9 @@ import platformSettingsModel from "../models/platformSettings.models.js";
 import couponModel from "../models/coupon.models.js";
 import couponUsageModel from "../models/couponUsage.models.js";
 import generateOrderNumber from "../utils/orderNumber.utils.js";
+import userModel from "../models/user.models.js";
+import emailServices from "../services/emailQueue.services.js";
+import { generateAdminMarketplaceOrderHTML } from "../utils/utils.js";
 
 const allowedPaymentMethods = ["COD", "PAY_ON_PICKUP"];
 
@@ -306,6 +309,34 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     throw error;
   } finally {
     session.endSession();
+  }
+
+  try {
+    const admins = await userModel.find({ role: "admin" }).select("email username");
+
+    const adminEmailJobs = admins
+      .filter((admin) => admin.email)
+      .map((admin) =>
+        emailServices.queueAdminMarketplaceOrderEmail({
+          to: admin.email,
+          subject: `New marketplace order ${order.orderNumber}`,
+          text: `A new marketplace order ${order.orderNumber} has been placed on CampusIn. Login to view details.`,
+          adminMarketplaceOrderHtml: generateAdminMarketplaceOrderHTML({
+            adminName: admin.username,
+            orderNumber: order.orderNumber,
+            categoryName: order.categoryName,
+            customerPhone: order.customerPhone,
+            finalAmount: order.pricing.finalAmount,
+          }),
+        }),
+      );
+
+    await Promise.all(adminEmailJobs);
+  } catch (error) {
+    console.error(
+      "Failed to queue marketplace new-order admin emails:",
+      error.message,
+    );
   }
 
   return res.status(201).json(
