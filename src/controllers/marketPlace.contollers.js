@@ -83,6 +83,44 @@ const getAllCategoriesByUser = asyncHandler(async (req, res) => {
   );
 });
 
+const getCategoryPlatformSettings = asyncHandler(async (req, res) => {
+  const categoryId = req.query.categoryId ? String(req.query.categoryId).trim() : "";
+
+  if (!categoryId) {
+    throw new ApiError(400, "Please provide a valid category");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await marketPlaceCategoryModel
+    .findOne({
+      _id: categoryId,
+      isActive: true,
+    })
+    .select("_id name pricingSettings");
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  if (!category.pricingSettings) {
+    throw new ApiError(
+      404,
+      "Marketplace pricing settings are not configured for this category",
+    );
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Category platform settings fetched successfully", {
+      categoryId: category._id,
+      categoryName: category.name,
+      extraCharges: category.pricingSettings,
+    }),
+  );
+});
+
 const getAllProductsByUser = asyncHandler(async (req, res) => {
   let filter = {
     isActive: true,
@@ -189,7 +227,7 @@ const getAllProductsByUser = asyncHandler(async (req, res) => {
 const getProductsByIdUser = asyncHandler(async(req,res)=>{
   const{productId} = req.params
   if(!mongoose.Types.ObjectId.isValid(productId)){
-    throw new ApiError(400,"Product ID is not valid")
+    throw new ApiError(400, "Invalid product ID")
   }
 
   const cachedData = await getProductCached(productId)
@@ -271,6 +309,7 @@ const getMarketPlaceProductSuggestions = asyncHandler(async (req, res) => {
 
 export default {
   getAllCategoriesByUser,
+  getCategoryPlatformSettings,
   getAllProductsByUser,
   getProductsByIdUser,
   getMarketPlaceProductSuggestions,

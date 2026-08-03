@@ -47,6 +47,8 @@ const redisServicesMock = {
   removeByPattern: jest.fn(),
   exists: jest.fn(),
   expire: jest.fn(),
+  increment: jest.fn(),
+  ttl: jest.fn(),
 };
 
 const passportMock = {
@@ -231,6 +233,8 @@ beforeEach(async () => {
   redisServicesMock.removeByPattern.mockResolvedValue(undefined);
   redisServicesMock.exists.mockResolvedValue(false);
   redisServicesMock.expire.mockResolvedValue(undefined);
+  redisServicesMock.increment.mockResolvedValue(1);
+  redisServicesMock.ttl.mockResolvedValue(0);
 });
 
 afterAll(async () => {
@@ -813,7 +817,9 @@ describe("auth controller routes", () => {
 
       // Assert
       expect(missing.status).toBe(401);
-      expect(missing.body.message).toBe("Unauthorised, refresh token not found");
+      expect(missing.body.message).toBe(
+        "Authentication required. Please sign in again.",
+      );
       expect(invalid.status).toBe(500);
       expect(noSession.status).toBe(400);
       expect(noSession.body.message).toBe("No session in progress");
@@ -1033,7 +1039,7 @@ describe("auth controller routes", () => {
       // Assert
       expect(response.status).toBe(200);
       expect(response.body.message).toBe(
-        "Password reset is successfull. Log in again to continue",
+        "Password reset successful. Log in again to continue",
       );
       expect(redisServicesMock.get).toHaveBeenCalledWith(
         "reset:valid-reset-token",
@@ -1326,7 +1332,7 @@ describe("auth controller routes", () => {
       });
       expect(resetPasswordResult.err).toMatchObject({
         statusCode: 400,
-        message: "New password is not enetered",
+        message: "Please enter a new password",
       });
     });
 

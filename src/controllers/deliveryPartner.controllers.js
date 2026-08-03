@@ -479,7 +479,7 @@ const viewAllDeliveryPartners = asyncHandler(async(req,res)=>{
     throw new ApiError(400,"User not found")
   }
   if (!['admin', 'vendor'].includes(user.role)) {
-  throw new ApiError(403,"Unauthorised")
+  throw new ApiError(403, "Unauthorized")
 }
   const deliveryPartners = await deliveryPartnerModel.find({
     isAvailable:true

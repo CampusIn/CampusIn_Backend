@@ -36,7 +36,10 @@ const createReview = asyncHandler(async (req, res) => {
   });
 
   if (!order) {
-    throw new ApiError(403, "Order before reviewing");
+    throw new ApiError(
+      403,
+      "You can review this restaurant only after a delivered order",
+    );
   }
 
   const existingReview = await reviewModel.findOne({
@@ -66,7 +69,7 @@ const createReview = asyncHandler(async (req, res) => {
 const getAllReview = asyncHandler(async (req, res) => {
   const { restaurantId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
-    throw new ApiError(400, "Restaurant Id is invalid");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
 
   const restaurant = await restaurantModel.findById(restaurantId);
@@ -80,7 +83,7 @@ const getAllReview = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 10;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(404, "Invalid page number or limit number");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
 
   const cacheParams = {
@@ -92,7 +95,7 @@ const getAllReview = asyncHandler(async (req, res) => {
   if (cachedData) {
     return res
       .status(200)
-      .json(new ApiResponse(200, "Reviews fetched successfuly", cachedData));
+      .json(new ApiResponse(200, "Reviews fetched successfully", cachedData));
   }
 
   const skip = (pageNumber - 1) * limitNumber;
@@ -139,14 +142,14 @@ const getAllReview = asyncHandler(async (req, res) => {
   }
 
   return res.status(200).json(
-    new ApiResponse(200, "Reviews fetched successfuly", responseData),
+    new ApiResponse(200, "Reviews fetched successfully", responseData),
   );
 });
 
 const updateReview = asyncHandler(async (req, res) => {
   const { reviewId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-    throw new ApiError(400, "Review Id is invalid");
+    throw new ApiError(400, "Invalid review ID");
   }
 
   const review = await reviewModel.findById(reviewId);
@@ -160,7 +163,7 @@ const updateReview = asyncHandler(async (req, res) => {
   const { rating = review.rating, comment = review.comment } = req.body;
 
   if (rating < 1 || rating > 5) {
-    throw new ApiError(400, "Rating shoud be between 1 and 5");
+    throw new ApiError(400, "Rating should be between 1 and 5");
   }
   const restaurantId = review.restaurant;
   review.rating = rating;
@@ -172,7 +175,7 @@ const updateReview = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Review updated successfuly", review));
+    .json(new ApiResponse(200, "Review updated successfully", review));
 });
 
 const deleteReview = asyncHandler(async (req, res) => {
@@ -183,7 +186,7 @@ const deleteReview = asyncHandler(async (req, res) => {
 
   const review = await reviewModel.findById(reviewId);
   if (!review) {
-    throw new ApiError(404, "No reviews found");
+    throw new ApiError(404, "Review not found");
   }
 
   if (review.user.toString() !== req.user.id) {
@@ -199,7 +202,7 @@ const deleteReview = asyncHandler(async (req, res) => {
   const restaurant = await restaurantModel.findById(restaurantId);
   const { averageRating, reviewCount } = restaurant;
   return res.status(200).json(
-    new ApiResponse(201, "Reviews deleted successfully", {
+    new ApiResponse(200, "Review deleted successfully", {
       averageRating,
       reviewCount,
     }),

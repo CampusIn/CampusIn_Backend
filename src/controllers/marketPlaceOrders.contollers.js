@@ -165,7 +165,7 @@ const redeemCouponForMarketOrder = async (coupon, userId, orderId, session) => {
       throw new ApiError(400, "You have already used this coupon");
     }
 
-    throw error;
+    throw new ApiError(500, "Unable to apply coupon right now. Please try again.");
   }
 
   const updatedCoupon = await couponModel.findOneAndUpdate(
@@ -325,7 +325,10 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to place your marketplace order right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -376,7 +379,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 10;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(404, "Invalid page number or limit number");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
 
   const cacheParams = {
@@ -389,7 +392,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
     return res.status(200).json(
       new ApiResponse(
         200,
-        "Marketplace order history fetched successfuly",
+        "Marketplace order history fetched successfully",
         cachedData,
       ),
     );
@@ -408,7 +411,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "No order found", responseData));
+      .json(new ApiResponse(200, "No orders found", responseData));
   }
 
   const orders = await marketPlaceOrderModel
@@ -435,7 +438,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "No order found", responseData));
+      .json(new ApiResponse(200, "No orders found", responseData));
   }
 
   const responseData = {
@@ -453,7 +456,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(
       200,
-      "Marketplace order history fetched successfuly",
+      "Marketplace order history fetched successfully",
       responseData,
     ),
   );
@@ -462,7 +465,7 @@ const getAllMarketPlaceOrders = asyncHandler(async (req, res) => {
 const getSingleMarketPlaceOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    throw new ApiError(400, "Inavlid order Id");
+    throw new ApiError(400, "Invalid order ID");
   }
 
   const order = await marketPlaceOrderModel
@@ -494,7 +497,7 @@ const getSingleMarketPlaceOrder = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        "Marketplace order details fetched successfuly",
+        "Marketplace order details fetched successfully",
         order,
       ),
     );
@@ -512,7 +515,7 @@ const cancelMarketPlaceOrder = asyncHandler(async (req, res) => {
   }
 
   if (order.user.toString() !== req.user.id) {
-    throw new ApiError(403, " Forbidden");
+    throw new ApiError(403, "Forbidden");
   }
 
   if (order.orderStatus !== "PENDING") {
@@ -531,7 +534,10 @@ const cancelMarketPlaceOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to cancel your marketplace order right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }

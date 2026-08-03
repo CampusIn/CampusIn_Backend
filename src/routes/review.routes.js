@@ -4,11 +4,13 @@ import { authMiddleware } from "../middlewares/auth.middlewares.js";
 import roleMiddleware from "../middlewares/role.middleware.js";
 import reviewValidationRules from "../validators/review.validators.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
+import { reviewsLimiter } from "../middlewares/rateLimiter.middlewares.js";
 
 const reviewRoute = Router();
 
 reviewRoute.post(
   "/reviews/:restaurantId",
+  reviewsLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -23,6 +25,7 @@ reviewRoute.get(
 
 reviewRoute.patch(
   "/reviews/:reviewId",
+  reviewsLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,

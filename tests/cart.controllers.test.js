@@ -39,6 +39,8 @@ const mockedExternalServices = {
   removeByPattern: jest.fn(),
   exists: jest.fn(),
   expire: jest.fn(),
+  increment: jest.fn(),
+  ttl: jest.fn(),
 };
 
 jest.unstable_mockModule("../src/controllers/auth.controllers.js", () => ({
@@ -218,6 +220,8 @@ beforeEach(async () => {
   mockedExternalServices.removeByPattern.mockResolvedValue(undefined);
   mockedExternalServices.exists.mockResolvedValue(false);
   mockedExternalServices.expire.mockResolvedValue(undefined);
+  mockedExternalServices.increment.mockResolvedValue(1);
+  mockedExternalServices.ttl.mockResolvedValue(0);
 });
 
 afterAll(async () => {
@@ -386,9 +390,9 @@ describe("cart controller routes", () => {
 
       // Assert
       expect(invalidId.status).toBe(400);
-      expect(invalidId.body.message).toBe("Invalid menu item id");
+      expect(invalidId.body.message).toBe("Invalid menu item ID");
       expect(invalidQuantity.status).toBe(400);
-      expect(invalidQuantity.body.message).toBe("Invalid Quantity");
+      expect(invalidQuantity.body.message).toBe("Invalid quantity");
       expect(notFound.status).toBe(404);
       expect(notFound.body.message).toBe("Menu not found");
       expect(unavailable.status).toBe(400);
@@ -470,7 +474,7 @@ describe("cart controller routes", () => {
 
       // Assert
       expect(response.status).toBe(200);
-      expect(response.body.message).toBe("Cart fetched successfuly");
+      expect(response.body.message).toBe("Cart fetched successfully");
       expect(response.body.data.totalAmount).toBe(160);
       await expect(
         cartModel.findOne({ user: user._id }).lean(),
@@ -559,13 +563,13 @@ describe("cart controller routes", () => {
 
       // Assert
       expect(invalidQuantity.status).toBe(400);
-      expect(invalidQuantity.body.message).toBe("Inavlid quantity");
+      expect(invalidQuantity.body.message).toBe("Invalid quantity");
       expect(invalidId.status).toBe(400);
-      expect(invalidId.body.message).toBe("Menu Item Id is not valid");
+      expect(invalidId.body.message).toBe("Invalid menu item ID");
       expect(missingCart.status).toBe(404);
       expect(missingCart.body.message).toBe("Cart not found");
       expect(noSuchItem.status).toBe(404);
-      expect(noSuchItem.body.message).toBe("No such item in the cart");
+      expect(noSuchItem.body.message).toBe("Item not found in cart");
     });
 
     it("returns business-rule errors and conflict handling", async () => {
@@ -624,7 +628,7 @@ describe("cart controller routes", () => {
 
       // Assert
       expect(response.status).toBe(200);
-      expect(response.body.message).toBe("Item deleted successfuly");
+      expect(response.body.message).toBe("Item deleted successfully");
       expect(response.body.data).toEqual({
         restaurant: null,
         items: [],
@@ -708,7 +712,7 @@ describe("cart controller routes", () => {
 
       // Assert
       expect(response.status).toBe(200);
-      expect(response.body.message).toBe("Cart deleted successfuly");
+      expect(response.body.message).toBe("Cart deleted successfully");
       await expect(cartModel.countDocuments({ user: user._id })).resolves.toBe(0);
     });
 

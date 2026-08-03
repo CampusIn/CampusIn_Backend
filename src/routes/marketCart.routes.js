@@ -4,11 +4,13 @@ import roleMiddleware from "../middlewares/role.middleware.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
 import marketCartValidationRules from "../validators/marketCart.validators.js";
 import marketCartController from "../controllers/marketCart.controllers.js";
+import { cartLimiter } from "../middlewares/rateLimiter.middlewares.js";
 
 const marketCartRouter = Router()
 
 marketCartRouter.post(
   "/cart",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -25,6 +27,7 @@ marketCartRouter.get(
 
 marketCartRouter.patch(
   "/cart/items/:productId",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -33,6 +36,7 @@ marketCartRouter.patch(
 
 marketCartRouter.delete(
   "/cart/items/:productId",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -41,6 +45,7 @@ marketCartRouter.delete(
 
 marketCartRouter.delete(
   "/cart",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,

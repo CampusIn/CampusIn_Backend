@@ -4,10 +4,12 @@ import validators from "../validators/auth.validators.js";
 import { authMiddleware, setAuthRole } from "../middlewares/auth.middlewares.js";
 import roleMiddleware from "../middlewares/role.middleware.js";
 import passport from "../config/passport.js";
+import { strictLimiter } from "../middlewares/rateLimiter.middlewares.js";
 const authRouter = Router();
 
 authRouter.post(
   "/user/register",
+  strictLimiter,
   setAuthRole("user"),
   validators.registerValidationRules,
   authControllers.register,
@@ -25,36 +27,42 @@ authRouter.post(
 );
 authRouter.post(
   "/user/login",
+  strictLimiter,
   setAuthRole("user"),
   validators.loginValidationRules,
   authControllers.login,
 );
 authRouter.post(
   "/user/resend-otp",
+  strictLimiter,
   setAuthRole("user"),
   validators.resendOtpValidationRules,
   authControllers.resendOTP,
 );
 authRouter.post(
   "/user/verify-email",
+  strictLimiter,
   setAuthRole("user"),
   validators.verifyEmailValidationRules,
   authControllers.verifyEmail,
 );
 authRouter.post(
   "/user/forgot-password",
+  strictLimiter,
   setAuthRole("user"),
   validators.resendOtpValidationRules,
   authControllers.forgotPassword,
 );
 authRouter.post(
   "/user/verify-reset-otp",
+  strictLimiter,
   setAuthRole("user"),
   validators.verifyEmailValidationRules,
   authControllers.verifyResetOtp,
 );
 authRouter.post(
   "/user/reset-password",
+  strictLimiter,
   setAuthRole("user"),
   validators.resetPasswordValidationRules,
   authControllers.resetPassword,
@@ -62,6 +70,7 @@ authRouter.post(
 
 authRouter.post(
   "/vendor/register",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.registerValidationRules,
   authControllers.register,
@@ -79,36 +88,42 @@ authRouter.post(
 );
 authRouter.post(
   "/vendor/login",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.loginValidationRules,
   authControllers.login,
 );
 authRouter.post(
   "/vendor/resend-otp",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.resendOtpValidationRules,
   authControllers.resendOTP,
 );
 authRouter.post(
   "/vendor/verify-email",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.verifyEmailValidationRules,
   authControllers.verifyEmail,
 );
 authRouter.post(
   "/vendor/forgot-password",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.resendOtpValidationRules,
   authControllers.forgotPassword,
 );
 authRouter.post(
   "/vendor/verify-reset-otp",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.verifyEmailValidationRules,
   authControllers.verifyResetOtp,
 );
 authRouter.post(
   "/vendor/reset-password",
+  strictLimiter,
   setAuthRole("vendor"),
   validators.resetPasswordValidationRules,
   authControllers.resetPassword,
@@ -116,6 +131,7 @@ authRouter.post(
 
 authRouter.post(
   "/delivery-partner/register",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.registerValidationRules,
   authControllers.register,
@@ -137,36 +153,42 @@ authRouter.post(
 );
 authRouter.post(
   "/delivery-partner/login",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.loginValidationRules,
   authControllers.login,
 );
 authRouter.post(
   "/delivery-partner/resend-otp",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.resendOtpValidationRules,
   authControllers.resendOTP,
 );
 authRouter.post(
   "/delivery-partner/verify-email",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.verifyEmailValidationRules,
   authControllers.verifyEmail,
 );
 authRouter.post(
   "/delivery-partner/forgot-password",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.resendOtpValidationRules,
   authControllers.forgotPassword,
 );
 authRouter.post(
   "/delivery-partner/verify-reset-otp",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.verifyEmailValidationRules,
   authControllers.verifyResetOtp,
 );
 authRouter.post(
   "/delivery-partner/reset-password",
+  strictLimiter,
   setAuthRole("delivery_partner"),
   validators.resetPasswordValidationRules,
   authControllers.resetPassword,
@@ -174,6 +196,7 @@ authRouter.post(
 
 authRouter.post(
   "/admin/register",
+  strictLimiter,
   authMiddleware,
   roleMiddleware("admin"),
   setAuthRole("admin"),
@@ -193,36 +216,42 @@ authRouter.post(
 );
 authRouter.post(
   "/admin/login",
+  strictLimiter,
   setAuthRole("admin"),
   validators.loginValidationRules,
   authControllers.login,
 );
 authRouter.post(
   "/admin/resend-otp",
+  strictLimiter,
   setAuthRole("admin"),
   validators.resendOtpValidationRules,
   authControllers.resendOTP,
 );
 authRouter.post(
   "/admin/verify-email",
+  strictLimiter,
   setAuthRole("admin"),
   validators.verifyEmailValidationRules,
   authControllers.verifyEmail,
 );
 authRouter.post(
   "/admin/forgot-password",
+  strictLimiter,
   setAuthRole("admin"),
   validators.resendOtpValidationRules,
   authControllers.forgotPassword,
 );
 authRouter.post(
   "/admin/verify-reset-otp",
+  strictLimiter,
   setAuthRole("admin"),
   validators.verifyEmailValidationRules,
   authControllers.verifyResetOtp,
 );
 authRouter.post(
   "/admin/reset-password",
+  strictLimiter,
   setAuthRole("admin"),
   validators.resetPasswordValidationRules,
   authControllers.resetPassword,

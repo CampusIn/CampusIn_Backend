@@ -364,7 +364,9 @@ describe("repair request routes", () => {
 
       // Assert
       expect(response.status).toBe(500);
-      expect(response.body.message).toBe("Failed to upload images");
+      expect(response.body.message).toBe(
+        "We couldn't upload your images right now. Please try again.",
+      );
       await expect(repairRequestModel.countDocuments()).resolves.toBe(0);
     });
 

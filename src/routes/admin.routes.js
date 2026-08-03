@@ -20,6 +20,7 @@ import {
   completeRepairRequestRules,
 } from "../validators/repairRequest.validators.js";
 import upload from "../middlewares/multer.middlewares.js";
+import { uploadLimiter } from "../middlewares/rateLimiter.middlewares.js";
 
 const adminRouter = Router();
 
@@ -190,6 +191,7 @@ adminRouter.patch(
 
 adminRouter.post(
   "/banners",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("admin"),
   upload.single("image"),
@@ -320,6 +322,7 @@ adminRouter.patch(
 
 adminRouter.post(
   "/marketplace/categories",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("admin"),
   upload.single("image"),
@@ -359,6 +362,7 @@ adminRouter.patch(
 
 adminRouter.post(
   "/marketplace/products",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("admin"),
   upload.array("images", 5),

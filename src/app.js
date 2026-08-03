@@ -20,6 +20,8 @@ import passport from "./config/passport.js";
 import cors from "cors";
 import config from "./config/config.js";
 import repairRouter from "./routes/repairRequest.routes.js";
+import { authMiddleware } from "./middlewares/auth.middlewares.js";
+import roleMiddleware from "./middlewares/role.middleware.js";
 
 const app = express();
 const normalizeOrigin = (origin) => origin?.replace(/\/$/, "");
@@ -41,13 +43,18 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error(`CORS blocked origin: ${origin}`));
+      return callback(new Error("Request origin is not allowed"));
     },
     credentials: true,
   }),
 );
 
-app.use("/admin/queues", serverAdapter.getRouter());
+app.use(
+  "/admin/queues",
+  authMiddleware,
+  roleMiddleware("admin"),
+  serverAdapter.getRouter(),
+);
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -89,15 +96,27 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res,next) => {
+app.use((err, req, res, next) => {
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
+  const isOperationalError = err instanceof ApiError;
+
+  if (!isOperationalError) {
+    console.error("Unhandled error:", err);
+  }
+
+  const responseErrors =
+    isOperationalError && Array.isArray(err.errors)
+      ? err.errors.filter((item) => typeof item === "string")
+      : [];
 
   return res.status(statusCode).json({
     statusCode,
     data: null,
-    message: err.message || "Internal server error",
+    message: isOperationalError
+      ? err.message
+      : "Something went wrong. Please try again later.",
     success: false,
-    errors: err.errors || [],
+    errors: responseErrors,
   });
 });
 

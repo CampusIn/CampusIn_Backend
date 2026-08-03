@@ -183,7 +183,7 @@ const viewUsers = asyncHandler(async (req, res) => {
   const totalPages = Math.ceil(totalUsers / limitNumber);
 
   return res.status(200).json(
-    new ApiResponse(200, "User details fetched successfuly", {
+    new ApiResponse(200, "User details fetched successfully", {
       users: matchedUsers,
       pagination: {
         page: pageNumber,
@@ -221,7 +221,7 @@ const viewVendors = asyncHandler(async (req, res) => {
   const totalPages = Math.ceil(totalVendor / limitNumber);
 
   return res.status(200).json(
-    new ApiResponse(200, "Vendor details fetched successfuly", {
+    new ApiResponse(200, "Vendor details fetched successfully", {
       venodors: matchedVendors,
       pagination: {
         page: pageNumber,
@@ -319,7 +319,7 @@ const unBlockUser = asyncHandler(async (req, res) => {
 const suspendRestaurant = asyncHandler(async (req, res) => {
   const restaurantId = req.params.id;
   if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
-    throw new ApiError(404, "Inavlid restaurant ID");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
 
   const restaurant = await restaurantModel.findByIdAndUpdate(restaurantId, {
@@ -333,13 +333,15 @@ const suspendRestaurant = asyncHandler(async (req, res) => {
 
   await deleteRestaurantCached(restaurantId);
 
-  return res.status(200).json(200, "Restuarant suspended successfully");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Restaurant suspended successfully"));
 });
 
 const activateRestaurant = asyncHandler(async (req, res) => {
   const restaurantId = req.params.id;
   if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
-    throw new ApiError(400, "Inavlid restaurant ID");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
 
   const restaurant = await restaurantModel.findByIdAndUpdate(restaurantId, {
@@ -355,7 +357,7 @@ const activateRestaurant = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Restuarant activated successfully"));
+    .json(new ApiResponse(200, "Restaurant activated successfully"));
 });
 
 const getAllOrders = asyncHandler(async (req, res) => {
@@ -363,7 +365,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 5;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(400, "Invalid Page number or Limit number");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
   const skip = (pageNumber - 1) * limitNumber;
   let filter = {};
@@ -1113,7 +1115,9 @@ const updateBannerStatus = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiError(200, "Banner status updated successfully", banner.isActive),
+      new ApiResponse(200, "Banner status updated successfully", {
+        isActive: banner.isActive,
+      }),
     );
 });
 
@@ -1454,7 +1458,7 @@ const getAllCategories = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 5;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(400, "Page number or Limit number is not valid");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
   const skip = (pageNumber - 1) * limitNumber;
   let filter = {};
@@ -1708,7 +1712,7 @@ const getAllProducts = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 5;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(400, "Page number or Limit number is invalid");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
 
   const skip = (pageNumber - 1) * limitNumber;
@@ -1732,7 +1736,7 @@ const getAllProducts = asyncHandler(async (req, res) => {
 
   if (category) {
     if (!mongoose.Types.ObjectId.isValid(category)) {
-      throw new ApiError(400, "Category ID is not valid");
+      throw new ApiError(400, "Invalid category ID");
     }
     filter.category = category;
   }
@@ -1944,7 +1948,7 @@ const getAllMarketPlaceOrdersAdmin = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 5;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(400, "Invalid Page number or Limit number");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
 
   const validStatus = [
@@ -2126,7 +2130,10 @@ const updateMarketPlaceOrderStatusAdmin = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to update marketplace order status right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -2208,7 +2215,10 @@ const assignMarketPlaceDeliveryPartnerAdmin = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to assign delivery partner right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -2611,7 +2621,7 @@ const getOneRepairPartner = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        "Reapir Partner fethced successfully",
+        "Repair partner fetched successfully",
         repairPartner,
       ),
     );
@@ -2620,7 +2630,7 @@ const getOneRepairPartner = asyncHandler(async (req, res) => {
 const updateRepairPartner = asyncHandler(async (req, res) => {
   const { partnerId } = req.params;
   if (!partnerId) {
-    throw new ApiError(400, "Partner Id not found");
+    throw new ApiError(400, "Partner ID is required");
   }
 
   const repairPartner = await repairPartnerModel.findById(partnerId);

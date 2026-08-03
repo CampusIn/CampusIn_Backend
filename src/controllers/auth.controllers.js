@@ -14,6 +14,13 @@ import asyncHandler from "../utils/asyncHandler.js";
 import mongoose from "mongoose";
 import { REDIS_KEYS } from "../constants/redis.constants.js";
 import { assertAllowedEmailDomain } from "../utils/emailDomainWhitelist.utils.js";
+import {
+  getBlockDurationFromAttempts,
+  getClientIp,
+  getLoginAttemptsRedisKey,
+  getLoginBlockRedisKey,
+  getLoginRateLimitKey,
+} from "../middlewares/rateLimiter.middlewares.js";
 
 const refreshTokenCookieOptions = {
   httpOnly: true,
@@ -36,6 +43,69 @@ const ensureExpectedRole = (expectedRole, actualRole) => {
       `This endpoint is only available for ${expectedRole} accounts`,
     );
   }
+};
+
+const formatRetryDuration = (seconds) => {
+  if (seconds >= 24 * 60 * 60) {
+    const days = Math.ceil(seconds / (24 * 60 * 60));
+    return `${days} day${days > 1 ? "s" : ""}`;
+  }
+
+  if (seconds >= 60 * 60) {
+    const hours = Math.ceil(seconds / (60 * 60));
+    return `${hours} hour${hours > 1 ? "s" : ""}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+};
+
+const buildLoginLimitContext = (req, normalizedEmail) => {
+  return {
+    role: getExpectedRole(req) || "all",
+    email: normalizedEmail || "unknown",
+    ip: getClientIp(req),
+  };
+};
+
+const assertLoginNotBlocked = async (loginContext) => {
+  const loginRateLimitKey = getLoginRateLimitKey(loginContext);
+  const blockKey = getLoginBlockRedisKey(loginRateLimitKey);
+  const blockTtl = await redisServices.ttl(blockKey);
+
+  if (blockTtl > 0) {
+    throw new ApiError(
+      429,
+      `Too many failed login attempts. Try again in ${formatRetryDuration(blockTtl)}.`,
+    );
+  }
+};
+
+const registerFailedLoginAttempt = async (loginContext) => {
+  const loginRateLimitKey = getLoginRateLimitKey(loginContext);
+  const attemptsKey = getLoginAttemptsRedisKey(loginRateLimitKey);
+  const blockKey = getLoginBlockRedisKey(loginRateLimitKey);
+
+  const attempts = await redisServices.increment(attemptsKey);
+  if (attempts === 1) {
+    await redisServices.expire(attemptsKey, 24 * 60 * 60);
+  }
+
+  const blockForSeconds = getBlockDurationFromAttempts(attempts);
+  if (blockForSeconds) {
+    await redisServices.set(blockKey, "1", blockForSeconds);
+    return blockForSeconds;
+  }
+
+  return 0;
+};
+
+const clearFailedLoginAttempts = async (loginContext) => {
+  const loginRateLimitKey = getLoginRateLimitKey(loginContext);
+  await Promise.all([
+    redisServices.remove(getLoginAttemptsRedisKey(loginRateLimitKey)),
+    redisServices.remove(getLoginBlockRedisKey(loginRateLimitKey)),
+  ]);
 };
 
 const register = asyncHandler(async (req, res) => {
@@ -100,11 +170,22 @@ const login = asyncHandler(async (req, res) => {
 
   assertAllowedEmailDomain(normalizedEmail);
 
+  const loginContext = buildLoginLimitContext(req, normalizedEmail);
+  await assertLoginNotBlocked(loginContext);
+
   const user = await userModel.findOne({
     email: normalizedEmail,
     ...(expectedRole ? { role: expectedRole } : {}),
   });
   if (!user) {
+    const blockForSeconds = await registerFailedLoginAttempt(loginContext);
+    if (blockForSeconds > 0) {
+      throw new ApiError(
+        429,
+        `Too many failed login attempts. Try again in ${formatRetryDuration(blockForSeconds)}.`,
+      );
+    }
+
     throw new ApiError(400, "Invalid credentials");
   }
 
@@ -118,8 +199,18 @@ const login = asyncHandler(async (req, res) => {
 
   const isPasswordMatch = await bcrypt.compare(password, user.password);
   if (!isPasswordMatch) {
+    const blockForSeconds = await registerFailedLoginAttempt(loginContext);
+    if (blockForSeconds > 0) {
+      throw new ApiError(
+        429,
+        `Too many failed login attempts. Try again in ${formatRetryDuration(blockForSeconds)}.`,
+      );
+    }
+
     throw new ApiError(400, "Invalid credentials");
   }
+
+  await clearFailedLoginAttempts(loginContext);
 
   const refreshToken = jwt.sign(
     {
@@ -168,7 +259,7 @@ const refreshToken = asyncHandler(async (req, res) => {
   const { refreshToken } = req.cookies;
   const expectedRole = getExpectedRole(req);
   if (!refreshToken) {
-    throw new ApiError(401, "Unauthorised, refresh token not found");
+    throw new ApiError(401, "Authentication required. Please sign in again.");
   }
   const refreshTokenHash = await crypto
     .createHash("sha256")
@@ -232,7 +323,7 @@ const logout = asyncHandler(async (req, res) => {
   const expectedRole = getExpectedRole(req);
   if (!refreshToken) {
     res.clearCookie("refreshToken", clearRefreshTokenCookieOptions);
-    return res.status(200).json(new ApiResponse(200, {}, "Logout successful"));
+    return res.status(200).json(new ApiResponse(200, "Logout successful", {}));
   }
 
   const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
@@ -253,7 +344,7 @@ const logout = asyncHandler(async (req, res) => {
   await session.save();
   res.clearCookie("refreshToken", clearRefreshTokenCookieOptions);
 
-  return res.status(200).json(new ApiResponse(200, {}, "Logout successful"));
+  return res.status(200).json(new ApiResponse(200, "Logout successful", {}));
 });
 
 const logoutAll = asyncHandler(async (req, res) => {
@@ -263,7 +354,7 @@ const logoutAll = asyncHandler(async (req, res) => {
     res.clearCookie("refreshToken", clearRefreshTokenCookieOptions);
     return res
       .status(200)
-      .json(new ApiResponse(200, {}, "Logged out from all devices"));
+      .json(new ApiResponse(200, "Logged out from all devices", {}));
   }
   const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
   ensureExpectedRole(expectedRole, decoded.role);
@@ -278,7 +369,9 @@ const logoutAll = asyncHandler(async (req, res) => {
   );
 
   res.clearCookie("refreshToken", clearRefreshTokenCookieOptions);
-  return res.status(200).json(new ApiResponse(200, {}, "Logged out from all devices"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Logged out from all devices", {}));
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
@@ -482,7 +575,7 @@ const verifyResetOtp = asyncHandler(async(req,res)=>{
 const resetPassword = asyncHandler(async(req,res)=>{
   const{resetToken,password}= req.body
   if(!password){
-    throw new ApiError(400,"New password is not enetered")
+    throw new ApiError(400, "Please enter a new password")
   }
 
   const userId = await redisServices.get(`${REDIS_KEYS.RESET}:${resetToken}`)
@@ -502,7 +595,9 @@ const resetPassword = asyncHandler(async(req,res)=>{
     user:user._id
   })
 
-  return res.status(200).json(new ApiResponse(200,"Password reset is successfull. Log in again to continue"))
+  return res.status(200).json(
+    new ApiResponse(200, "Password reset successful. Log in again to continue"),
+  )
 
 
 });

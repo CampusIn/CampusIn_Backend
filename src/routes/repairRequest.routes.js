@@ -7,11 +7,13 @@ import {
 } from "../validators/repairRequest.validators.js";
 import repairController from "../controllers/repairRequest.controllers.js";
 import upload from "../middlewares/multer.middlewares.js";
+import { strictLimiter } from "../middlewares/rateLimiter.middlewares.js";
 
 const repairRouter = Router();
 
 repairRouter.post(
   "/",
+  strictLimiter,
   authMiddleware,
   roleMiddleware("user"),
   upload.array("images", 5),

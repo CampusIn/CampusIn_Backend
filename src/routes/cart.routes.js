@@ -4,10 +4,12 @@ import roleMiddleware from "../middlewares/role.middleware.js";
 import cartControllers from "../controllers/cart.controllers.js";
 import authControllers from "../controllers/auth.controllers.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
+import { cartLimiter } from "../middlewares/rateLimiter.middlewares.js";
 const cartRouter = Router();
 
 cartRouter.post(
   "/cart/items",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -21,6 +23,7 @@ cartRouter.get(
 );
 cartRouter.patch(
   "/cart/items/:menuItemId",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -28,6 +31,7 @@ cartRouter.patch(
 );
 cartRouter.delete(
   "/cart/items/:menuItemId",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
@@ -35,6 +39,7 @@ cartRouter.delete(
 );
 cartRouter.delete(
   "/cart",
+  cartLimiter,
   authMiddleware,
   roleMiddleware("user"),
   blockMiddleware,
