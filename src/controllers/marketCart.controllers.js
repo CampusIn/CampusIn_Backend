@@ -14,7 +14,7 @@ const emptyCartResponse = {
 
 const getActiveProduct = async (productId) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
-    throw new ApiError(400, "Product ID is not valid");
+    throw new ApiError(400, "Invalid product ID");
   }
 
   const product = await marketPlaceProductsModel.findOne({
@@ -33,7 +33,7 @@ const calculateAndPopulateCart = async (cart) => {
   const finalCart = await marketCartTotal(cart);
   await finalCart.populate({
     path: "category",
-    select: "name",
+    select: "name pricingSettings",
   });
   await finalCart.populate({
     path: "items.product",

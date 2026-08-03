@@ -11,10 +11,10 @@ const addToCart = asyncHandler(async (req, res) => {
   const addQuantity = Number(quantity);
 
   if (!mongoose.Types.ObjectId.isValid(menuItemId)) {
-    throw new ApiError(400, "Invalid menu item id");
+    throw new ApiError(400, "Invalid menu item ID");
   }
   if (!Number.isInteger(addQuantity) || addQuantity < 1) {
-    throw new ApiError(400, "Invalid Quantity");
+    throw new ApiError(400, "Invalid quantity");
   }
 
   const menu = await menuModel
@@ -55,7 +55,7 @@ const addToCart = asyncHandler(async (req, res) => {
       createdCart = true;
     } catch (error) {
       if (error.code !== 11000) {
-        throw error;
+        throw new ApiError(500, "Unable to update cart right now. Please try again.");
       }
 
       cart = await cartModel.findOne({
@@ -266,7 +266,7 @@ const getItemsFromCart = asyncHandler(async (req, res) => {
   await cart.save();
 
   return res.status(200).json(
-    new ApiResponse(200, "Cart fetched successfuly", {
+    new ApiResponse(200, "Cart fetched successfully", {
       restaurant: cart.restaurant,
       items: cart.items,
       totalAmount: cart.totalAmount,
@@ -280,10 +280,10 @@ const updateCartItemQuantity = asyncHandler(async (req, res) => {
   const updateQuantity = Number(quantity);
 
   if (!Number.isInteger(updateQuantity) || updateQuantity < 1) {
-    throw new ApiError(400, "Inavlid quantity");
+    throw new ApiError(400, "Invalid quantity");
   }
   if (!mongoose.Types.ObjectId.isValid(menuItemId)) {
-    throw new ApiError(400, "Menu Item Id is not valid");
+    throw new ApiError(400, "Invalid menu item ID");
   }
 
   const menu = await menuModel
@@ -386,7 +386,7 @@ const updateCartItemQuantity = asyncHandler(async (req, res) => {
     );
 
     if (!item) {
-      throw new ApiError(404, "No such item in the cart");
+      throw new ApiError(404, "Item not found in cart");
     }
 
     throw new ApiError(409, "Cart was updated by another request");
@@ -434,7 +434,7 @@ const deleteCartItem = asyncHandler(async (req, res) => {
   if (cart.items.length === 0) {
     await cart.deleteOne({ user: req.user.id });
     return res.status(200).json(
-      new ApiResponse(200, "Item deleted successfuly", {
+      new ApiResponse(200, "Item deleted successfully", {
         restaurant: null,
         items: [],
         totalAmount: 0,
@@ -445,7 +445,7 @@ const deleteCartItem = asyncHandler(async (req, res) => {
   const finalCart = await cartTotal(cart);
   return res
     .status(200)
-    .json(new ApiResponse(200, "Item deleted successfuly", finalCart));
+    .json(new ApiResponse(200, "Item deleted successfully", finalCart));
 });
 
 const deleteCart = asyncHandler(async (req, res) => {
@@ -458,7 +458,7 @@ const deleteCart = asyncHandler(async (req, res) => {
   }
 
   await cart.deleteOne({ user: req.user.id });
-  return res.status(200).json(new ApiResponse(200, "Cart deleted successfuly"));
+  return res.status(200).json(new ApiResponse(200, "Cart deleted successfully"));
 });
 
 export default {

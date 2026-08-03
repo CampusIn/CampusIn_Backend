@@ -8,11 +8,16 @@ import { authMiddleware } from "../middlewares/auth.middlewares.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
 import roleMiddleware from "../middlewares/role.middleware.js";
 import { restaurantSuspensionMiddleware } from "../middlewares/restaurantSuspension.middlewares.js";
+import {
+  searchAwareRelaxedLimiter,
+  uploadLimiter,
+} from "../middlewares/rateLimiter.middlewares.js";
 
 const restaurantRoute = Router();
 
 restaurantRoute.post(
   "/restaurants",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("vendor"),
   blockMiddleware,
@@ -61,6 +66,7 @@ restaurantRoute.patch(
 
 restaurantRoute.get(
   "/restaurants",
+  searchAwareRelaxedLimiter,
   restaurantController.getAllRestaurantsByUser,
 );
 

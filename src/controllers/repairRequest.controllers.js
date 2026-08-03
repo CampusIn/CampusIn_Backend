@@ -33,7 +33,10 @@ const createRepairRequest = asyncHandler(async (req, res) => {
       uploadedFiles.map((file) => uploadOnCloudinary(file.path)),
     );
   } catch (error) {
-    throw new ApiError(500, "Failed to upload images",error);
+    throw new ApiError(
+      500,
+      "We couldn't upload your images right now. Please try again.",
+    );
   }
 
   const requestNumber = generateRequestNumber();

@@ -8,10 +8,12 @@ import { menuStatusValidationRule } from "../validators/menuStatus.validators.js
 import upload from "../middlewares/multer.middlewares.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
 import { restaurantSuspensionMiddleware } from "../middlewares/restaurantSuspension.middlewares.js";
+import { uploadLimiter } from "../middlewares/rateLimiter.middlewares.js";
 const menuRouter = Router();
 
 menuRouter.post(
   "/:restaurantId/menu",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("vendor"),
   blockMiddleware,

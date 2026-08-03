@@ -39,7 +39,7 @@ const updateRestaurant = asyncHandler(async (req, res) => {
 
   const {id} = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
   const restaurant = await restaurantModel.findById(id);
   if (!restaurant) {
@@ -91,7 +91,7 @@ const getMyRestaurants = asyncHandler(async (req, res) => {
 //debug this
 const getRestaurantById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    throw new ApiError(400, "Invalid Id");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
   const restaurant = await restaurantModel.findById(req.params.id);
   if (!restaurant) {
@@ -99,7 +99,7 @@ const getRestaurantById = asyncHandler(async (req, res) => {
   }
 
   if (restaurant.owner.toString() !== req.user.id.toString()) {
-    throw new ApiError(403, "Not authorised");
+    throw new ApiError(403, "Not authorized");
   }
 
   return res
@@ -109,7 +109,7 @@ const getRestaurantById = asyncHandler(async (req, res) => {
 
 const dltRestaurantById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
   const restaurant = await restaurantModel.findById(req.params.id);
 
@@ -118,31 +118,33 @@ const dltRestaurantById = asyncHandler(async (req, res) => {
   }
 
   if (restaurant.owner.toString() !== req.user.id.toString()) {
-    throw new ApiError(403, "Not authorised");
+    throw new ApiError(403, "Not authorized");
   }
   await restaurantModel.findByIdAndDelete(req.params.id);
   await deleteRestaurantCached(req.params.id)
   return res
     .status(200)
-    .json(new ApiResponse(200,"Restaurant is deleted"));
+    .json(new ApiResponse(200, "Restaurant deleted successfully"));
 });
 
 const updateRestaurantStatus = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
   const restaurant = await restaurantModel.findById(req.params.id);
   if (!restaurant) {
     throw new ApiError(404, "Restaurant not found");
   }
   if (restaurant.owner.toString() !== req.user.id.toString()) {
-    throw new ApiError(403, "Not authorised");
+    throw new ApiError(403, "Not authorized");
   }
 
   restaurant.isOpen = req.body.isOpen;
   await restaurant.save();
   await deleteRestaurantCached(req.params.id)
-  return res.status(200).json(new ApiResponse(200, restaurant));
+  return res.status(200).json(
+    new ApiResponse(200, "Restaurant status updated successfully", restaurant),
+  );
 });
 
 const getAllRestaurantsByUser = asyncHandler(async (req, res) => {
@@ -165,7 +167,7 @@ const getAllRestaurantsByUser = asyncHandler(async (req, res) => {
   if (cachedData) {
     return res
       .status(200)
-      .json(new ApiResponse(200, "Restaurant fetched successfuly", cachedData));
+      .json(new ApiResponse(200, "Restaurants fetched successfully", cachedData));
   }
 
   const filter = {
@@ -200,14 +202,14 @@ const getAllRestaurantsByUser = asyncHandler(async (req, res) => {
   await setRestaurantsCached(cacheParams, responseData);
 
   return res.status(200).json(
-    new ApiResponse(200, "Restaurant fetched successfuly", responseData),
+    new ApiResponse(200, "Restaurants fetched successfully", responseData),
   );
 });
 
 const getRestaurantByUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid restaurant ID");
   }
 
   const cachedData = await getRestaurantCached(id)
@@ -215,7 +217,7 @@ const getRestaurantByUser = asyncHandler(async (req, res) => {
     
     return res
     .status(200)
-    .json(new ApiResponse(200, "Restaurant fetched successful", cachedData));
+    .json(new ApiResponse(200, "Restaurant fetched successfully", cachedData));
   }
 
 
@@ -235,7 +237,7 @@ const getRestaurantByUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Restaurant fetched successful", restaurant));
+    .json(new ApiResponse(200, "Restaurant fetched successfully", restaurant));
 });
 
 export default {

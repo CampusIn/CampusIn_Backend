@@ -40,11 +40,21 @@ const expire = async(key,ttl)=>{
     await redis.expire(key,ttl)
 }
 
+const increment = async (key) => {
+  return redis.incr(key);
+};
+
+const ttl = async (key) => {
+  return redis.ttl(key);
+};
+
 export default {
     get,
     set,
     remove,
     removeByPattern,
     exists,
-    expire
+    expire,
+    increment,
+    ttl
 }

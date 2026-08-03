@@ -45,7 +45,7 @@ const createMenuItem = asyncHandler(async (req, res) => {
   await deleteRestaurantMenuCached(restaurantId)
   return res
     .status(201)
-    .json(new ApiResponse(201, menuCreated, "Menu item created successfully"));
+    .json(new ApiResponse(201, "Menu item created successfully", menuCreated));
 });
 
 const getRestaurantMenu = asyncHandler(async (req, res) => {
@@ -59,7 +59,7 @@ const getRestaurantMenu = asyncHandler(async (req, res) => {
     
     return res
     .status(200)
-    .json(new ApiResponse(200, "Menu fetched successfuly", cachedData));
+    .json(new ApiResponse(200, "Menu fetched successfully", cachedData));
   }
 
   
@@ -78,13 +78,13 @@ const getRestaurantMenu = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Menu fetched successfuly", menuItems));
+    .json(new ApiResponse(200, "Menu fetched successfully", menuItems));
 });
 
 const getMenuItemById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Id not found");
+    throw new ApiError(400, "Invalid menu item ID");
   }
   const menuItem = await menuModel.findOne({
     _id: id,
@@ -96,13 +96,13 @@ const getMenuItemById = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Menu items fetched successfuly", menuItem));
+    .json(new ApiResponse(200, "Menu item fetched successfully", menuItem));
 });
 
 const updateMenuItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid menu item ID");
   }
   const menuItem = await verifyMenuOwnership(id, req.user.id);
   const allowedFields = ["name", "description", "price", "category", "image", "foodType"];
@@ -123,14 +123,14 @@ const updateMenuItem = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Menu updated successfult", updatedMenu));
+    .json(new ApiResponse(200, "Menu updated successfully", updatedMenu));
 });
 
 const updateMenuStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { isAvailable } = req.body;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid menu item ID");
   }
 
   const menuItem = await verifyMenuOwnership(id, req.user.id);
@@ -142,20 +142,20 @@ const updateMenuStatus = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Availability updated successful", menuItem));
+    .json(new ApiResponse(200, "Availability updated successfully", menuItem));
 });
 
 const deleteMenuItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Bad Request");
+    throw new ApiError(400, "Invalid menu item ID");
   }
   const menuItem = await verifyMenuOwnership(id, req.user.id);
 
   menuItem.isDeleted = true;
   await menuItem.save();
   await deleteRestaurantMenuCached(menuItem.restaurant._id)
-  return res.status(200).json(new ApiResponse(200, "Menu deleted successfuly"));
+  return res.status(200).json(new ApiResponse(200, "Menu deleted successfully"));
 });
 
 const getMenuSuggestions = asyncHandler(async (req, res) => {

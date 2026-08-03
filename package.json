@@ -43,7 +43,8 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.19.1",
-    "prettier": "^3.9.1"
+    "prettier": "^3.9.1",
+    "rate-limiter-flexible": "^11.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

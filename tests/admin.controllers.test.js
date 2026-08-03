@@ -700,7 +700,7 @@ describe("admin controller routes", () => {
       expect(suspended).toMatchObject({ isSuspended: true, isOpen: false });
       expect(activateResponse.status).toBe(200);
       expect(activateResponse.body.message).toBe(
-        "Restuarant activated successfully",
+        "Restaurant activated successfully",
       );
       expect(activated).toMatchObject({ isSuspended: false, isOpen: true });
       expect(deleteRestaurantCachedMock).toHaveBeenCalledWith(
@@ -1145,7 +1145,8 @@ describe("admin controller routes", () => {
       expect(detailResponse.body.data._id).toBe(banner._id.toString());
       expect(statusResponse.status).toBe(200);
       expect(statusResponse.body.statusCode).toBe(200);
-      expect(statusResponse.body.errors).toBe(false);
+      expect(statusResponse.body.success).toBe(true);
+      expect(statusResponse.body.data.isActive).toBe(false);
       expect(deletedBannerCachedMock).toHaveBeenCalledTimes(1);
     });
 
@@ -1242,7 +1243,7 @@ describe("admin controller routes", () => {
       // Assert
       expect(invalidList.status).toBe(400);
       expect(invalidList.body.message).toBe(
-        "Page number or Limit number is not valid",
+        "Invalid page number or limit number",
       );
       expect(invalidDetail.status).toBe(400);
       expect(invalidDetail.body.message).toBe("Invalid category ID");
@@ -1395,7 +1396,7 @@ describe("admin controller routes", () => {
 
       // Assert
       expect(invalidCategory.status).toBe(400);
-      expect(invalidCategory.body.message).toBe("Category ID is not valid");
+      expect(invalidCategory.body.message).toBe("Invalid category ID");
       expect(invalidDetail.status).toBe(400);
       expect(invalidDetail.body.message).toBe("Product ID is invalid");
       expect(missingDetail.status).toBe(404);

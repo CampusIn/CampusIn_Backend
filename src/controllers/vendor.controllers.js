@@ -19,7 +19,7 @@ const getVendorOverview = asyncHandler(async (req, res) => {
     owner: vendorId,
   });
   if (!restaurant) {
-    throw new ApiError(404, "Restauarnt not found");
+    throw new ApiError(404, "Restaurant not found");
   }
 
   const [totalOrders, deliveredOrders, cancelledOrders, revenue] =

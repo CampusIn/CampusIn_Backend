@@ -275,7 +275,10 @@ const createOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to place your order right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -318,7 +321,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
   const pageNumber = parseInt(page) || 1;
   const limitNumber = parseInt(limit) || 10;
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(404, "Invalid page number or limit number");
+    throw new ApiError(400, "Invalid page number or limit number");
   }
 
   const cacheParams = {
@@ -330,7 +333,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
   if (cachedData) {
     return res
       .status(200)
-      .json(new ApiResponse(200, "Order history fetched successfuly", cachedData));
+      .json(new ApiResponse(200, "Order history fetched successfully", cachedData));
   }
 
   const skip = (pageNumber - 1) * limitNumber;
@@ -343,7 +346,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "No order found", responseData));
+      .json(new ApiResponse(200, "No orders found", responseData));
   }
   const orders = await orderModel
     .find(
@@ -369,7 +372,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "No order found", responseData));
+      .json(new ApiResponse(200, "No orders found", responseData));
   }
 
   const responseData = {
@@ -385,14 +388,14 @@ const getAllOrders = asyncHandler(async (req, res) => {
   await setOrderHistoryCached(cacheParams, responseData);
 
   return res.status(200).json(
-    new ApiResponse(200, "Order history fetched successfuly", responseData),
+    new ApiResponse(200, "Order history fetched successfully", responseData),
   );
 });
 
 const getSingleOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    throw new ApiError(400, "Inavlid order Id");
+    throw new ApiError(400, "Invalid order ID");
   }
 
   const order = await orderModel
@@ -412,7 +415,7 @@ const getSingleOrder = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Order details fetched successfuly", order));
+    .json(new ApiResponse(200, "Order details fetched successfully", order));
 });
 
 const cancelOrder = asyncHandler(async (req, res) => {
@@ -425,7 +428,7 @@ const cancelOrder = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Order does not exist");
   }
   if (order.user.toString() !== req.user.id) {
-    throw new ApiError(403, " Forbidden");
+    throw new ApiError(403, "Forbidden");
   }
   if (order.orderStatus !== "PENDING") {
     throw new ApiError(409, "Only pending orders can be cancelled");
@@ -442,7 +445,10 @@ const cancelOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to cancel your order right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -461,7 +467,7 @@ const cancelOrder = asyncHandler(async (req, res) => {
 const getVendorOrder = asyncHandler(async (req, res) => {
   const restaurant = await restaurantModel.findOne({ owner: req.user.id });
   if (!restaurant) {
-    throw new ApiError(404, "No restaurant found");
+    throw new ApiError(404, "Restaurant not found");
   }
 
   const { page = 1, limit = 10 } = req.query;
@@ -532,7 +538,7 @@ const getVendorOrder = asyncHandler(async (req, res) => {
   });
 
   return res.status(200).json(
-    new ApiResponse(200, "Orders fetched succesfuly", {
+    new ApiResponse(200, "Orders fetched successfully", {
       orders: ordersWithDeliveryPartnerDetails,
       pagination: {
         page: pageNumber,
@@ -549,7 +555,7 @@ const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
   if(cachedSettings && cachedSettings.platformCharge !== undefined){
     return res
     .status(200)
-    .json(new ApiResponse(200, "Order details fetched successfuly", cachedSettings));
+    .json(new ApiResponse(200, "Order details fetched successfully", cachedSettings));
   }
 
   
@@ -568,7 +574,7 @@ const getPlatformSettingsVendor = asyncHandler(async (req, res) => {
 const getSingleVendorOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    throw new ApiError(400, "Inavlid order Id");
+    throw new ApiError(400, "Invalid order ID");
   }
 
 
@@ -615,14 +621,14 @@ const getSingleVendorOrder = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Order details fetched successfuly", orderWithDeliveryPartnerDetails));
+    .json(new ApiResponse(200, "Order details fetched successfully", orderWithDeliveryPartnerDetails));
 });
 
 const changeOrderStatus = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   const { orderStatus } = req.body;
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    throw new ApiError(400, "Inavlid Order Id");
+    throw new ApiError(400, "Invalid order ID");
   }
   const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "REJECTED"];
 
@@ -675,7 +681,10 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new ApiError(
+      500,
+      "Unable to update the order status right now. Please try again.",
+    );
   } finally {
     session.endSession();
   }
@@ -683,7 +692,7 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   await deleteOrderHistoryCached(order.user.toString());
 
   return res.status(200).json(
-    new ApiResponse(200, "Order status updated successfuly", {
+    new ApiResponse(200, "Order status updated successfully", {
       orderNumber: order.orderNumber,
       orderStatus: order.orderStatus,
     }),

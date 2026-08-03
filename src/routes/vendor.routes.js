@@ -4,6 +4,7 @@ import roleMiddleware from "../middlewares/role.middleware.js";
 import vendorControllers from "../controllers/vendor.controllers.js";
 import { blockMiddleware } from "../middlewares/block.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
+import { uploadLimiter } from "../middlewares/rateLimiter.middlewares.js";
 
 const vendorRouter = Router();
 
@@ -66,6 +67,7 @@ vendorRouter.get(
 
 vendorRouter.post(
   "/menu/bulk-upload",
+  uploadLimiter,
   authMiddleware,
   roleMiddleware("vendor"),
   blockMiddleware,
