@@ -29,6 +29,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://campus-out-frontend.vercel.app",
   "http://localhost:3000",
+  "https://campusin.store",
   normalizeOrigin(config.CLIENT_URL),
 ].filter(Boolean);
 
@@ -86,6 +87,7 @@ app.use("/api/marketplace", marketCartRouter);
 app.use("/api/marketplace", marketPlaceOrdersRouter);
 app.use("/api/repair-requests", repairRouter);
 
+
 app.use((req, res) => {
   return res.status(404).json({
     statusCode: 404,
@@ -119,5 +121,7 @@ app.use((err, req, res, next) => {
     errors: responseErrors,
   });
 });
+
+
 
 export default app;

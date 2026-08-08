@@ -6,6 +6,14 @@ import marketPlaceProductsModel from "../models/marketPlaceProducts.models.js";
 import marketCartModel from "../models/marketPlaceCart.models.js";
 import marketCartTotal from "../utils/marketCartTotal.utils.js";
 
+const logCartDbFailure = (operation, error, userId) => {
+  console.error(`[market-cart:${operation}]`, {
+    userId,
+    message: error?.message,
+    name: error?.name,
+  });
+};
+
 const emptyCartResponse = {
   category: null,
   items: [],
@@ -31,6 +39,22 @@ const getActiveProduct = async (productId) => {
 
 const calculateAndPopulateCart = async (cart) => {
   const finalCart = await marketCartTotal(cart);
+  const persisted = await marketCartModel.updateOne(
+    {
+      _id: finalCart._id,
+      user: finalCart.user,
+    },
+    {
+      $set: {
+        totalAmount: finalCart.totalAmount,
+      },
+    },
+  );
+
+  if (persisted.matchedCount === 0) {
+    throw new ApiError(409, "Cart was updated by another request");
+  }
+
   await finalCart.populate({
     path: "category",
     select: "name pricingSettings",
@@ -207,7 +231,15 @@ const addToMarketCart = asyncHandler(async (req, res) => {
     }
   }
 
-  const finalCart = await calculateAndPopulateCart(cart);
+  let finalCart;
+  try {
+    finalCart = await calculateAndPopulateCart(cart);
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      logCartDbFailure("addToMarketCart", error, req.user.id);
+    }
+    throw error;
+  }
 
   return res
     .status(201)
@@ -268,8 +300,31 @@ const getItemsFromMarketCart = asyncHandler(async (req, res) => {
     return sum + item.quantity * product.price;
   }, 0);
 
+  let persisted;
+  try {
+    persisted = await marketCartModel.updateOne(
+      {
+        _id: cart._id,
+        user: req.user.id,
+      },
+      {
+        $set: {
+          totalAmount: calculatedAmount,
+        },
+      },
+    );
+  } catch (error) {
+    logCartDbFailure("getItemsFromMarketCart", error, req.user.id);
+    throw error;
+  }
+
+  if (persisted.matchedCount === 0) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No items in the cart", emptyCartResponse));
+  }
+
   cart.totalAmount = calculatedAmount;
-  await cart.save();
 
   return res.status(200).json(
     new ApiResponse(200, "Cart fetched successfully", {
@@ -318,7 +373,15 @@ const updateMarketCartItemQuantity = asyncHandler(async (req, res) => {
     throw new ApiError(404, "No such item in the cart");
   }
 
-  const finalCart = await calculateAndPopulateCart(updatedCart);
+  let finalCart;
+  try {
+    finalCart = await calculateAndPopulateCart(updatedCart);
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      logCartDbFailure("updateMarketCartItemQuantity", error, req.user.id);
+    }
+    throw error;
+  }
 
   return res.status(200).json(
     new ApiResponse(200, "Quantity updated", {
@@ -357,7 +420,7 @@ const deleteMarketCartItem = asyncHandler(async (req, res) => {
   }
 
   if (updatedCart.items.length === 0) {
-    await updatedCart.deleteOne({ user: req.user.id });
+    await marketCartModel.deleteOne({ _id: updatedCart._id, user: req.user.id });
     return res
       .status(200)
       .json(
@@ -365,7 +428,15 @@ const deleteMarketCartItem = asyncHandler(async (req, res) => {
       );
   }
 
-  const finalCart = await calculateAndPopulateCart(updatedCart);
+  let finalCart;
+  try {
+    finalCart = await calculateAndPopulateCart(updatedCart);
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      logCartDbFailure("deleteMarketCartItem", error, req.user.id);
+    }
+    throw error;
+  }
 
   return res
     .status(200)

@@ -1,23 +1,49 @@
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campusin-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      REDIS_URL: ""
+      MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - backend_private
+
   redis:
     image: redis:7-alpine
     container_name: campusin-redis
-    ports:
-      - "6379:6379"
-    command: ["redis-server","--appendonly","yes"]
-    volumes:
-    - redis-data:/data
-  
-  mongo:
-    image: mongo:7
-    container_name: campusin-mongo
-    ports:
-      - "27017:27017"
+    restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: redis_tuts
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: >
+      sh -c 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"'
     volumes:
-      - mongo-data:/data/db
-
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - backend_private
+  
 volumes:
   redis-data:
-  mongo-data:
+
+networks:
+  backend_private:
+    driver: bridge
