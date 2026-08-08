@@ -19,8 +19,21 @@
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "generate:postman": "node scripts/generate-postman-collection.js",
+    "seed:loadtest-users": "node scripts/seed-loadtest-users.js",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:load:smoke": "k6 run -e TEST_TYPE=smoke load-tests/scenarios/user.js",
+    "test:load": "k6 run -e TEST_TYPE=load load-tests/scenarios/user.js",
+    "test:load:stress": "k6 run -e TEST_TYPE=stress load-tests/scenarios/user.js",
+    "test:load:spike": "k6 run -e TEST_TYPE=spike load-tests/scenarios/user.js",
+    "test:load:public": "k6 run -e TEST_TYPE=load load-tests/scenarios/public.js",
+    "test:load:vendor": "k6 run -e TEST_TYPE=load load-tests/scenarios/vendor.js",
+    "test:load:admin": "k6 run -e TEST_TYPE=load load-tests/scenarios/admin.js",
+    "test:load:delivery": "k6 run -e TEST_TYPE=load load-tests/scenarios/delivery.js",
+    "test:load:ratelimit": "k6 run load-tests/scenarios/rate-limit.js",
+    "test:load:mixed": "k6 run load-tests/scenarios/mixed-user.js",
+    "test:load:mixed:smoke": "k6 run -e TEST_TYPE=smoke load-tests/scenarios/mixed-user.js"
   },
   "dependencies": {
     "@bull-board/api": "^8.1.2",
@@ -44,7 +57,9 @@
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.19.1",
     "prettier": "^3.9.1",
-    "rate-limiter-flexible": "^11.2.0"
+    "rate-limiter-flexible": "^11.2.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

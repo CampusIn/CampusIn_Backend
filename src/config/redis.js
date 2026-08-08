@@ -3,10 +3,18 @@ import config from "../config/config.js"
 
 const isTestEnvironment = process.env.NODE_ENV === "test" || Boolean(process.env.JEST_WORKER_ID);
 
-const redis = new Redis(config.REDIS_URL,{
+const commonRedisOptions = {
     maxRetriesPerRequest: null,
     enableReadyCheck:true,
-    lazyConnect: isTestEnvironment
+    lazyConnect: isTestEnvironment,
+    retryStrategy: (times) => Math.min(times * 200, 2000),
+}
+
+const redis = new Redis({
+    host: config.REDIS_HOST,
+    port: Number(config.REDIS_PORT),
+    password: config.REDIS_PASSWORD,
+    ...commonRedisOptions,
 })
 
 redis.on("connect",()=>{

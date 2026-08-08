@@ -501,6 +501,39 @@ describe("cart controller routes", () => {
       expect(response.status).toBe(400);
       expect(response.body.message).toBe(`${menuItem.name} is currently unavailable`);
     });
+
+    it("returns an empty cart response when the cart is deleted during total persistence", async () => {
+      // Arrange
+      const user = await createUser({ username: "racy-reader" });
+      const owner = await createUser({ role: "vendor", username: "owner-racy" });
+      const restaurant = await createRestaurant(owner);
+      const menuItem = await createMenuItem(restaurant, {
+        name: "Poha",
+        price: 50,
+        stockQty: 10,
+      });
+      await createCart(user, restaurant, [{ menuItem: menuItem._id, quantity: 1 }], 50);
+
+      jest.spyOn(cartModel, "updateOne").mockResolvedValueOnce({
+        acknowledged: true,
+        matchedCount: 0,
+        modifiedCount: 0,
+      });
+
+      // Act
+      const response = await request(app)
+        .get("/api/user/cart")
+        .set(authHeader(user));
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe("No items in the cart");
+      expect(response.body.data).toEqual({
+        restaurant: null,
+        items: [],
+        totalAmount: 0,
+      });
+    });
   });
 
   describe("PATCH /api/user/cart/items/:menuItemId", () => {

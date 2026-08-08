@@ -6,6 +6,34 @@ import menuModel from "../models/menuItem.models.js";
 import cartTotal from "../utils/cartTotal.js";
 import mongoose from "mongoose";
 
+const logCartDbFailure = (operation, error, userId) => {
+  console.error(`[food-cart:${operation}]`, {
+    userId,
+    message: error?.message,
+    name: error?.name,
+  });
+};
+
+const persistCartTotal = async (cartId, userId, totalAmount) => {
+  let persisted;
+  try {
+    persisted = await cartModel.updateOne(
+      {
+        _id: cartId,
+        user: userId,
+      },
+      {
+        $set: { totalAmount },
+      },
+    );
+  } catch (error) {
+    logCartDbFailure("persistCartTotal", error, userId);
+    throw error;
+  }
+
+  return persisted.matchedCount > 0;
+};
+
 const addToCart = asyncHandler(async (req, res) => {
   const { menuItemId, quantity } = req.body;
   const addQuantity = Number(quantity);
@@ -191,6 +219,11 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (cart.totalAmount == null) {
     const finalCart = await cartTotal(cart);
+    const persisted = await persistCartTotal(finalCart._id, req.user.id, finalCart.totalAmount);
+    if (!persisted) {
+      throw new ApiError(409, "Cart was updated by another request");
+    }
+
     return res
       .status(201)
       .json(new ApiResponse(201, "Items added to cart", finalCart));
@@ -262,8 +295,22 @@ const getItemsFromCart = asyncHandler(async (req, res) => {
     return sum + finalPrice;
   }, 0);
 
+  const persisted = await persistCartTotal(cart._id, req.user.id, calculatedAmount);
+  if (!persisted) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        "No items in the cart",
+        ({
+          restaurant: null,
+          items: [],
+          totalAmount: 0,
+        }),
+      ),
+    );
+  }
+
   cart.totalAmount = calculatedAmount;
-  await cart.save();
 
   return res.status(200).json(
     new ApiResponse(200, "Cart fetched successfully", {
@@ -394,6 +441,11 @@ const updateCartItemQuantity = asyncHandler(async (req, res) => {
 
   if (updatedCart.totalAmount == null) {
     const finalCart = await cartTotal(updatedCart);
+    const persisted = await persistCartTotal(finalCart._id, req.user.id, finalCart.totalAmount);
+    if (!persisted) {
+      throw new ApiError(409, "Cart was updated by another request");
+    }
+
     return res.status(200).json(
       new ApiResponse(200, "Quantity updated", {
         items: finalCart.items,
@@ -415,24 +467,34 @@ const deleteCartItem = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(menuItemId)) {
     throw new ApiError(400, "Invalid Menu Item ID");
   }
-  const cart = await cartModel.findOne({
-    user: req.user.id,
-  });
-
-  if (!cart) {
-    throw new ApiError(404, "Cart not found");
-  }
-
-  const itemPos = cart.items.findIndex(
-    (item) => menuItemId === item.menuItem.toString(),
+  const updatedCart = await cartModel.findOneAndUpdate(
+    {
+      user: req.user.id,
+      "items.menuItem": menuItemId,
+    },
+    {
+      $pull: {
+        items: {
+          menuItem: menuItemId,
+        },
+      },
+    },
+    {
+      returnDocument: "after",
+    },
   );
 
-  if (itemPos === -1) {
+  if (!updatedCart) {
+    const cart = await cartModel.findOne({ user: req.user.id }).select("_id").lean();
+    if (!cart) {
+      throw new ApiError(404, "Cart not found");
+    }
+
     throw new ApiError(404, "Item not found in cart");
   }
-  cart.items.splice(itemPos, 1);
-  if (cart.items.length === 0) {
-    await cart.deleteOne({ user: req.user.id });
+
+  if (updatedCart.items.length === 0) {
+    await cartModel.deleteOne({ _id: updatedCart._id, user: req.user.id });
     return res.status(200).json(
       new ApiResponse(200, "Item deleted successfully", {
         restaurant: null,
@@ -442,7 +504,12 @@ const deleteCartItem = asyncHandler(async (req, res) => {
     );
   }
 
-  const finalCart = await cartTotal(cart);
+  const finalCart = await cartTotal(updatedCart);
+  const persisted = await persistCartTotal(finalCart._id, req.user.id, finalCart.totalAmount);
+  if (!persisted) {
+    throw new ApiError(409, "Cart was updated by another request");
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, "Item deleted successfully", finalCart));

@@ -146,18 +146,6 @@ if( !process.env.REDIS_PASSWORD) {
   }
 }
 
-if( !process.env.REDIS_URL) {
-  try {
-    throw new Error("REDIS_URL is not defined in environment variables");
-  } catch (error) {
-    console.log(error.message);
-    process.exit(1);
-  }
-}
-
-
-
-
 const config = {
   PORT: process.env.PORT,
   MONGO_URI: process.env.MONGO_URI,
@@ -175,8 +163,7 @@ const config = {
   CLIENT_URL:process.env.CLIENT_URL,
   REDIS_HOST: process.env.REDIS_HOST,
   REDIS_PORT: process.env.REDIS_PORT,
-  REDIS_PASSWORD: process.env.REDIS_PASSWORD,
-  REDIS_URL:process.env.REDIS_URL
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD
 };
 
 export default config;

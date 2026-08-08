@@ -32,7 +32,6 @@ const cartTotal = async (cart) => {
   }, 0);
 
   cart.totalAmount = calculatedAmount;
-  await cart.save();
   return cart;
 };
 
