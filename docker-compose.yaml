@@ -8,17 +8,38 @@ services:
     env_file:
       - .env
     environment:
+      NODE_ENV: production
       PORT: 3000
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      REDIS_URL: ""
       MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
     depends_on:
       redis:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
+    networks:
+      - backend_private
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campusin-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["node", "src/workers/email.workers.js"]
     networks:
       - backend_private
 
@@ -28,19 +49,25 @@ services:
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-    command: >
-      sh -c 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+    command:
+      - sh
+      - -c
+      - 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
     networks:
       - backend_private
-  
+
 volumes:
   redis-data:
 
