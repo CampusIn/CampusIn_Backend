@@ -12,6 +12,7 @@ import mongoose from "mongoose";
 import menuModel from "../models/menuItem.models.js";
 import { uploadOnCloudinary } from "../services/cloudinary.services.js";
 import generateInvoicePDF from "../services/invoice.services.js";
+import { deleteRestaurantMenuCached } from "../services/menuCahed.services.js";
 
 const getVendorOverview = asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
@@ -149,6 +150,7 @@ const updateStock = asyncHandler(async (req, res) => {
   menu.stockQty = stockQty;
   menu.isAvailable = stockQty > 0;
   await menu.save();
+  await deleteRestaurantMenuCached(menu.restaurant);
   return res
     .status(200)
     .json(new ApiResponse(200, "Stock updated successfully"));
