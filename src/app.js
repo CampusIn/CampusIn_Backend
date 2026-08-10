@@ -35,7 +35,8 @@ const allowedOrigins = [
   normalizeOrigin(config.CLIENT_URL),
 ].filter(Boolean);
 
-app.use(express.json());
+app.use(express.json({ limit: "200kb" }));
+app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -104,10 +105,15 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   if (err?.name === "MulterError") {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Image size limit should be below 200kb"
+        : err.message;
+
     return res.status(400).json({
       statusCode: 400,
       data: null,
-      message: err.message,
+      message,
       success: false,
       errors: [],
     });
