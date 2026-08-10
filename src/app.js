@@ -20,6 +20,8 @@ import passport from "./config/passport.js";
 import cors from "cors";
 import config from "./config/config.js";
 import repairRouter from "./routes/repairRequest.routes.js";
+import printingRouter from "./routes/printing.routes.js";
+import adminPrintingRouter from "./routes/adminPrinting.routes.js";
 import { authMiddleware } from "./middlewares/auth.middlewares.js";
 import roleMiddleware from "./middlewares/role.middleware.js";
 
@@ -86,6 +88,8 @@ app.use("/api/marketplace", marketRouter);
 app.use("/api/marketplace", marketCartRouter);
 app.use("/api/marketplace", marketPlaceOrdersRouter);
 app.use("/api/repair-requests", repairRouter);
+app.use("/api/printing", printingRouter);
+app.use("/api/admin/printing", adminPrintingRouter);
 
 
 app.use((req, res) => {
@@ -99,6 +103,16 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err?.name === "MulterError") {
+    return res.status(400).json({
+      statusCode: 400,
+      data: null,
+      message: err.message,
+      success: false,
+      errors: [],
+    });
+  }
+
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
   const isOperationalError = err instanceof ApiError;
 

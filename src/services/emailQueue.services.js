@@ -203,6 +203,72 @@ const queueAdminRepairPriceDecisionEmail = async ({
   );
 };
 
+const queuePrintingOrderCreatedEmail = async ({
+  to,
+  subject,
+  text,
+  printingOrderCreatedHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.PRINTING_ORDER_CREATED,
+    {
+      to,
+      subject,
+      text,
+      printingOrderCreatedHtml,
+    },
+    {
+      jobId: `printing-created-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queuePrintingOrderStatusUpdatedEmail = async ({
+  to,
+  subject,
+  text,
+  printingOrderStatusHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.PRINTING_ORDER_STATUS_UPDATED,
+    {
+      to,
+      subject,
+      text,
+      printingOrderStatusHtml,
+    },
+    {
+      jobId: `printing-status-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
+const queueAdminPrintingOrderCreatedEmail = async ({
+  to,
+  subject,
+  text,
+  adminPrintingOrderCreatedHtml,
+}) => {
+  const emailQueue = await getEmailQueue();
+  return emailQueue.add(
+    REDIS_KEYS.ADMIN_PRINTING_ORDER_CREATED,
+    {
+      to,
+      subject,
+      text,
+      adminPrintingOrderCreatedHtml,
+    },
+    {
+      jobId: `admin-printing-created-${to}-${Date.now()}`,
+      delay: 0,
+    },
+  );
+};
+
 export default {
   queueOTPEmail,
   queueWelcomeEmail,
@@ -214,4 +280,7 @@ export default {
   queueDeliveryAssignmentEmail,
   queueAdminRepairRequestSubmittedEmail,
   queueAdminRepairPriceDecisionEmail,
+  queuePrintingOrderCreatedEmail,
+  queuePrintingOrderStatusUpdatedEmail,
+  queueAdminPrintingOrderCreatedEmail,
 };
