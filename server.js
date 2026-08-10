@@ -3,6 +3,7 @@ import connectDB from "./src/config/db.js";
 import config from "./src/config/config.js";
 import {redis} from "./src/config/redis.js";
 import "./src/workers/email.workers.js" //use a second service in production for worker
+import "./src/workers/printing.workers.js";
 
 
 
@@ -22,5 +23,4 @@ try {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
 

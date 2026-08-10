@@ -20,6 +20,8 @@ import passport from "./config/passport.js";
 import cors from "cors";
 import config from "./config/config.js";
 import repairRouter from "./routes/repairRequest.routes.js";
+import printingRouter from "./routes/printing.routes.js";
+import adminPrintingRouter from "./routes/adminPrinting.routes.js";
 import { authMiddleware } from "./middlewares/auth.middlewares.js";
 import roleMiddleware from "./middlewares/role.middleware.js";
 
@@ -33,7 +35,8 @@ const allowedOrigins = [
   normalizeOrigin(config.CLIENT_URL),
 ].filter(Boolean);
 
-app.use(express.json());
+app.use(express.json({ limit: "200kb" }));
+app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -86,6 +89,8 @@ app.use("/api/marketplace", marketRouter);
 app.use("/api/marketplace", marketCartRouter);
 app.use("/api/marketplace", marketPlaceOrdersRouter);
 app.use("/api/repair-requests", repairRouter);
+app.use("/api/printing", printingRouter);
+app.use("/api/admin/printing", adminPrintingRouter);
 
 
 app.use((req, res) => {
@@ -99,6 +104,21 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err?.name === "MulterError") {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Image size limit should be below 200kb"
+        : err.message;
+
+    return res.status(400).json({
+      statusCode: 400,
+      data: null,
+      message,
+      success: false,
+      errors: [],
+    });
+  }
+
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
   const isOperationalError = err instanceof ApiError;
 

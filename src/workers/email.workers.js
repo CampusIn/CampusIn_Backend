@@ -24,6 +24,12 @@ const EMAIL_JOB_HANDLERS = {
     sendEmail(to, subject, text, repairRequestSubmittedHtml),
   ADMIN_REPAIR_PRICE_DECISION: async ({ to, subject, text, repairPriceDecisionHtml }) =>
     sendEmail(to, subject, text, repairPriceDecisionHtml),
+  PRINTING_ORDER_CREATED: async ({ to, subject, text, printingOrderCreatedHtml }) =>
+    sendEmail(to, subject, text, printingOrderCreatedHtml),
+  PRINTING_ORDER_STATUS_UPDATED: async ({ to, subject, text, printingOrderStatusHtml }) =>
+    sendEmail(to, subject, text, printingOrderStatusHtml),
+  ADMIN_PRINTING_ORDER_CREATED: async ({ to, subject, text, adminPrintingOrderCreatedHtml }) =>
+    sendEmail(to, subject, text, adminPrintingOrderCreatedHtml),
 };
 
 const EMAIL_JOB_ALIASES = {
@@ -46,6 +52,9 @@ const EMAIL_JOB_ALIASES = {
   ADMIN_REPAIR_SUBMITTED: "ADMIN_REPAIR_REQUEST_SUBMITTED",
   [REDIS_KEYS.ADMIN_REPAIR_PRICE_DECISION]: "ADMIN_REPAIR_PRICE_DECISION",
   ADMIN_REPAIR_DECISION: "ADMIN_REPAIR_PRICE_DECISION",
+  [REDIS_KEYS.PRINTING_ORDER_CREATED]: "PRINTING_ORDER_CREATED",
+  [REDIS_KEYS.PRINTING_ORDER_STATUS_UPDATED]: "PRINTING_ORDER_STATUS_UPDATED",
+  [REDIS_KEYS.ADMIN_PRINTING_ORDER_CREATED]: "ADMIN_PRINTING_ORDER_CREATED",
 };
 
 const normalizeJobName = (jobName) => {
@@ -71,6 +80,9 @@ const inferJobNameFromPayload = (data = {}) => {
   if (data.deliveryAssignmentHtml) return "DELIVERY_ASSIGNMENT";
   if (data.repairRequestSubmittedHtml) return "ADMIN_REPAIR_REQUEST_SUBMITTED";
   if (data.repairPriceDecisionHtml) return "ADMIN_REPAIR_PRICE_DECISION";
+  if (data.printingOrderCreatedHtml) return "PRINTING_ORDER_CREATED";
+  if (data.printingOrderStatusHtml) return "PRINTING_ORDER_STATUS_UPDATED";
+  if (data.adminPrintingOrderCreatedHtml) return "ADMIN_PRINTING_ORDER_CREATED";
 
   return null;
 };
