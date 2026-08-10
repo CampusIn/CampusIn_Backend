@@ -73,11 +73,11 @@ adminPrintingRouter.patch(
 );
 
 adminPrintingRouter.get(
-  "/orders/:orderId/files/:fileId/access",
+  "/orders/:orderId/files/:fileId/download",
   authMiddleware,
   roleMiddleware("admin"),
   printingFileAccessParamRules,
-  adminPrintingController.getPrintingFileAccessAdmin,
+  adminPrintingController.downloadPrintingFileAdmin,
 );
 
 export default adminPrintingRouter;

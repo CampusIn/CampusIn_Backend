@@ -59,4 +59,35 @@ const getSignedPrintingFileUrl = ({
   };
 };
 
-export { uploadPrintingBuffer, deletePrintingFile, getSignedPrintingFileUrl };
+const downloadPrivatePrintingFile = async ({
+  storageKey,
+  resourceType,
+  extension,
+  expiresInSeconds = 60,
+}) => {
+  const { signedUrl } = getSignedPrintingFileUrl({
+    storageKey,
+    resourceType,
+    extension,
+    expiresInSeconds,
+  });
+
+  const response = await fetch(signedUrl);
+  if (!response.ok) {
+    throw new Error("Failed to download private printing file");
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    contentType: response.headers.get("content-type"),
+  };
+};
+
+export {
+  uploadPrintingBuffer,
+  deletePrintingFile,
+  getSignedPrintingFileUrl,
+  downloadPrivatePrintingFile,
+};

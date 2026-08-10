@@ -9,7 +9,7 @@ import { ensurePrintingConfig } from "../services/printingConfig.services.js";
 import {
   uploadPrintingBuffer,
   deletePrintingFile,
-  getSignedPrintingFileUrl,
+  downloadPrivatePrintingFile,
 } from "../services/printingStorage.services.js";
 import {
   getPageCountForFile,
@@ -21,7 +21,12 @@ import { redis } from "../config/redis.js";
 import emailServices from "../services/emailQueue.services.js";
 
 const ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
-const FILE_ACCESS_TTL_SECONDS = 5 * 60;
+const getSafeDownloadName = (originalName = "file") => {
+  return String(originalName)
+    .replace(/[\r\n]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 200);
+};
 
 const buildPrintingCreatedHtml = ({ username, orderNumber, amount }) => {
   return `<p>Hi ${username || "there"},</p><p>Your print order <strong>${orderNumber}</strong> is created.</p><p>Total: INR ${amount}</p>`;
@@ -547,7 +552,7 @@ const cancelMyPrintingOrder = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Printing order cancelled successfully", order));
 });
 
-const getPrintingFileAccess = asyncHandler(async (req, res) => {
+const downloadPrintingFile = asyncHandler(async (req, res) => {
   const { orderId, fileId } = req.params;
   const order = await printingOrderModel.findById(orderId);
   if (!order) {
@@ -562,19 +567,23 @@ const getPrintingFileAccess = asyncHandler(async (req, res) => {
     throw new ApiError(404, "File not found");
   }
 
-  const { signedUrl, expiresAt } = getSignedPrintingFileUrl({
-    storageKey: file.storageKey,
-    resourceType: file.resourceType,
-    extension: file.extension,
-    expiresInSeconds: FILE_ACCESS_TTL_SECONDS,
-  });
+  let filePayload;
+  try {
+    filePayload = await downloadPrivatePrintingFile({
+      storageKey: file.storageKey,
+      resourceType: file.resourceType,
+      extension: file.extension,
+    });
+  } catch {
+    throw new ApiError(500, "Unable to download file right now");
+  }
 
-  return res.status(200).json(
-    new ApiResponse(200, "Signed file URL generated", {
-      signedUrl,
-      expiresAt,
-    }),
-  );
+  const contentType = filePayload.contentType || file.mimeType || "application/octet-stream";
+  const downloadName = getSafeDownloadName(file.originalName || `file-${file._id}`);
+
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${downloadName}"`);
+  return res.status(200).send(filePayload.buffer);
 });
 
 const getPrintingConfigForUser = asyncHandler(async (req, res) => {
@@ -596,6 +605,6 @@ export default {
   getMyPrintingOrders,
   getMyPrintingOrderById,
   cancelMyPrintingOrder,
-  getPrintingFileAccess,
+  downloadPrintingFile,
   getPrintingConfigForUser,
 };

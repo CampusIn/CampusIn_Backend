@@ -79,11 +79,11 @@ printingRouter.patch(
 );
 
 printingRouter.get(
-  "/orders/:orderId/files/:fileId/access",
+  "/orders/:orderId/files/:fileId/download",
   authMiddleware,
   roleMiddleware("user"),
   printingFileAccessParamRules,
-  printingController.getPrintingFileAccess,
+  printingController.downloadPrintingFile,
 );
 
 export default printingRouter;
