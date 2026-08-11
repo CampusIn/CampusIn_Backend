@@ -94,6 +94,11 @@ const printingUploadIdParamRules = [
   validateResult,
 ];
 
+const printingUploadSessionIdParamRules = [
+  param("uploadSessionId").isMongoId().withMessage("Invalid upload session ID"),
+  validateResult,
+];
+
 const printingFileAccessParamRules = [
   param("orderId").isMongoId().withMessage("Invalid order ID"),
   param("fileId").isMongoId().withMessage("Invalid file ID"),
@@ -175,6 +180,7 @@ export {
   updatePrintingPaymentStatusRules,
   printingOrderIdParamRules,
   printingUploadIdParamRules,
+  printingUploadSessionIdParamRules,
   printingFileAccessParamRules,
   printingListQueryRules,
   updatePrintingConfigRules,

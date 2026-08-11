@@ -2,8 +2,6 @@ import app from "./src/app.js";
 import connectDB from "./src/config/db.js";
 import config from "./src/config/config.js";
 import {redis} from "./src/config/redis.js";
-import "./src/workers/email.workers.js" //use a second service in production for worker
-import "./src/workers/printing.workers.js";
 
 
 
@@ -11,6 +9,12 @@ import "./src/workers/printing.workers.js";
 const port = config.PORT || 3000;
 //Connect to Database
 connectDB();
+
+if (process.env.RUN_INLINE_WORKERS !== "false") {
+  await import("./src/workers/email.workers.js");
+  await import("./src/workers/printing.workers.js");
+  await import("./src/workers/printingUpload.workers.js");
+}
 
 try {
   await redis.set("health:boot", "ok", "EX", 30);
@@ -23,4 +27,3 @@ try {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
