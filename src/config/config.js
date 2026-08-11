@@ -26,27 +26,49 @@ if (!process.env.CLIENT_ID) {
     process.exit(1);
   }
 }
-if (!process.env.CLIENT_SECRET) {
+if (!process.env.SMTP2GO_HOST) {
   try {
-    throw new Error("CLIENT_SECRET is not defined in environment variables");
+    throw new Error("SMTP2GO_HOST is not defined in environment variables");
   } catch (error) {
     console.log(error.message);
     process.exit(1);
   }
 }
-if (!process.env.GOOGLE_REFRESH_TOKEN) {
+if (!process.env.SMTP2GO_PORT) {
   try {
-    throw new Error(
-      "GOOGLE_REFRESH_TOKEN is not defined in environment variables",
-    );
+    throw new Error("SMTP2GO_PORT is not defined in environment variables");
   } catch (error) {
     console.log(error.message);
     process.exit(1);
   }
 }
-if (!process.env.GOOGLE_USER) {
+if (!process.env.SMTP2GO_USER) {
   try {
-    throw new Error("GOOGLE_USER is not defined in environment variables");
+    throw new Error("SMTP2GO_USER is not defined in environment variables");
+  } catch (error) {
+    console.log(error.message);
+    process.exit(1);
+  }
+}
+if (!process.env.SMTP2GO_PASS) {
+  try {
+    throw new Error("SMTP2GO_PASS is not defined in environment variables");
+  } catch (error) {
+    console.log(error.message);
+    process.exit(1);
+  }
+}
+if (!process.env.SMTP2GO_FROM_EMAIL) {
+  try {
+    throw new Error("SMTP2GO_FROM_EMAIL is not defined in environment variables");
+  } catch (error) {
+    console.log(error.message);
+    process.exit(1);
+  }
+}
+if (!process.env.SMTP2GO_FROM_NAME) {
+  try {
+    throw new Error("SMTP2GO_FROM_NAME is not defined in environment variables");
   } catch (error) {
     console.log(error.message);
     process.exit(1);
@@ -151,9 +173,12 @@ const config = {
   MONGO_URI: process.env.MONGO_URI,
   JWT_SECRET: process.env.JWT_SECRET,
   CLIENT_ID: process.env.CLIENT_ID,
-  CLIENT_SECRET: process.env.CLIENT_SECRET,
-  GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN,
-  GOOGLE_USER: process.env.GOOGLE_USER,
+  SMTP2GO_HOST: process.env.SMTP2GO_HOST,
+  SMTP2GO_PORT: process.env.SMTP2GO_PORT,
+  SMTP2GO_USER: process.env.SMTP2GO_USER,
+  SMTP2GO_PASS: process.env.SMTP2GO_PASS,
+  SMTP2GO_FROM_EMAIL: process.env.SMTP2GO_FROM_EMAIL,
+  SMTP2GO_FROM_NAME: process.env.SMTP2GO_FROM_NAME,
   CLOUDINARY_NAME: process.env.CLOUDINARY_NAME,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
