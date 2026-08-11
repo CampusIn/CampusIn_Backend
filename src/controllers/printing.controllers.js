@@ -7,18 +7,26 @@ import printingOrderModel from "../models/printingOrder.models.js";
 import userModel from "../models/user.models.js";
 import { ensurePrintingConfig } from "../services/printingConfig.services.js";
 import {
-  uploadPrintingBuffer,
   deletePrintingFile,
   downloadPrivatePrintingFile,
 } from "../services/printingStorage.services.js";
 import {
-  getPageCountForFile,
-  sha256FromBuffer,
   validateUploadMeta,
 } from "../utils/printingFile.utils.js";
 import generatePrintingOrderNumber from "../utils/printingOrderNumber.utils.js";
 import { redis } from "../config/redis.js";
 import emailServices from "../services/emailQueue.services.js";
+import { stagePrintingFileBuffer, deleteStagedPrintingFile } from "../services/printingStaging.services.js";
+import {
+  queuePrintingUploadJob,
+  removePrintingUploadJobIfPending,
+} from "../services/printingUploadQueue.services.js";
+import {
+  generateAdminPrintingOrderCreatedHTML,
+  generateAdminPrintingOrderCreatedText,
+  generatePrintingOrderCreatedHTML,
+  generatePrintingOrderCreatedText,
+} from "../utils/utils.js";
 
 const ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
 const getSafeDownloadName = (originalName = "file") => {
@@ -26,19 +34,6 @@ const getSafeDownloadName = (originalName = "file") => {
     .replace(/[\r\n]/g, "")
     .replace(/[^a-zA-Z0-9._-]/g, "_")
     .slice(0, 200);
-};
-
-const buildPrintingCreatedHtml = ({ username, orderNumber, amount }) => {
-  return `<p>Hi ${username || "there"},</p><p>Your print order <strong>${orderNumber}</strong> is created.</p><p>Total: INR ${amount}</p>`;
-};
-
-const buildAdminPrintingCreatedHtml = ({
-  username,
-  orderNumber,
-  userName,
-  contactMobile,
-}) => {
-  return `<p>Hi ${username || "admin"},</p><p>New print order <strong>${orderNumber}</strong> was created by ${userName}.</p><p>Contact mobile: ${contactMobile}</p>`;
 };
 
 const getIdempotencyCacheKey = (userId, idempotencyKey) => {
@@ -99,8 +94,10 @@ const uploadPrintingFiles = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Total upload size exceeded");
   }
 
-  const uploadedRecords = [];
-  const uploadedStorageRefs = [];
+  const uploadSessionId = new mongoose.Types.ObjectId().toString();
+  const queuedRecords = [];
+  const createdRecords = [];
+  const stagedFileIds = [];
 
   try {
     for (const file of files) {
@@ -123,27 +120,21 @@ const uploadPrintingFiles = asyncHandler(async (req, res) => {
         throw new ApiError(400, `${file.originalname}: ${error.message}`);
       }
 
-      const pageCount = getPageCountForFile({
-        detectedMime: validated.detectedMime,
+      const stagedFileId = await stagePrintingFileBuffer({
         buffer: file.buffer,
+        filename: file.originalname,
+        metadata: {
+          userId: String(req.user.id),
+          uploadSessionId,
+          mimeType: validated.detectedMime,
+          originalName: file.originalname,
+          fileSize: file.size,
+        },
       });
 
-      const resourceType = validated.detectedMime === "application/pdf" ? "raw" : "image";
-      const publicId = `u_${req.user.id}_${Date.now()}_${Math.round(Math.random() * 1e8)}`;
-      const storage = await uploadPrintingBuffer({
-        buffer: file.buffer,
-        mimeType: validated.detectedMime,
-        resourceType,
-        publicId,
-      });
-
-      uploadedStorageRefs.push({
-        storageKey: storage.storageKey,
-        resourceType: storage.resourceType,
-      });
+      stagedFileIds.push(stagedFileId);
 
       const expiresAt = new Date(Date.now() + limits.uploadTtlHours * 60 * 60 * 1000);
-      const checksumSha256 = sha256FromBuffer(file.buffer);
 
       const uploadRecord = await printingUploadModel.create({
         user: req.user.id,
@@ -152,35 +143,113 @@ const uploadPrintingFiles = asyncHandler(async (req, res) => {
         extension: validated.extension,
         sizeBytes: file.size,
         storageProvider: "cloudinary",
-        storageKey: storage.storageKey,
-        resourceType: storage.resourceType,
-        pageCount,
-        checksumSha256,
-        uploadStatus: "UPLOADED",
+        uploadStatus: "QUEUED",
+        uploadSessionId,
+        stagingFileId: stagedFileId,
         expiresAt,
       });
+      createdRecords.push(uploadRecord);
 
-      uploadedRecords.push(uploadRecord);
+      const queuedJob = await queuePrintingUploadJob({
+        uploadId: uploadRecord._id,
+        userId: req.user.id,
+      });
+
+      uploadRecord.queueJobId = queuedJob.id;
+      await uploadRecord.save();
+
+      queuedRecords.push(uploadRecord);
+      stagedFileIds.pop();
     }
   } catch (error) {
     await Promise.all(
-      uploadedStorageRefs.map((ref) =>
-        deletePrintingFile({
-          storageKey: ref.storageKey,
-          resourceType: ref.resourceType,
-        }).catch(() => null),
-      ),
+      stagedFileIds.map((stagingFileId) => deleteStagedPrintingFile(stagingFileId).catch(() => null)),
     );
+
+    if (createdRecords.length) {
+      await Promise.all(
+        createdRecords.map((record) =>
+          printingUploadModel
+            .findByIdAndUpdate(record._id, {
+              $set: {
+                uploadStatus: "FAILED",
+                failureReason: "Upload queuing failed",
+                processedAt: new Date(),
+                stagingFileId: null,
+              },
+            })
+            .catch(() => null),
+        ),
+      );
+    }
 
     if (error instanceof ApiError) {
       throw error;
     }
-    throw new ApiError(500, "Unable to upload files right now");
+    throw new ApiError(500, "Unable to queue files right now");
   }
 
-  return res.status(201).json(
-    new ApiResponse(201, "Files uploaded successfully", {
-      uploads: uploadedRecords,
+  return res.status(202).json(
+    new ApiResponse(202, "Files accepted for processing", {
+      uploadSessionId,
+      uploads: queuedRecords,
+    }),
+  );
+});
+
+const getPrintingUploadById = asyncHandler(async (req, res) => {
+  const { uploadId } = req.params;
+
+  const upload = await printingUploadModel.findOne({
+    _id: uploadId,
+    user: req.user.id,
+  });
+
+  if (!upload) {
+    throw new ApiError(404, "Upload not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Upload status fetched successfully", upload));
+});
+
+const getPrintingUploadSessionStatus = asyncHandler(async (req, res) => {
+  const { uploadSessionId } = req.params;
+
+  const uploads = await printingUploadModel
+    .find({
+      user: req.user.id,
+      uploadSessionId,
+    })
+    .sort({ createdAt: 1 });
+
+  if (!uploads.length) {
+    throw new ApiError(404, "Upload session not found");
+  }
+
+  const progress = uploads.reduce(
+    (acc, upload) => {
+      acc.total += 1;
+      acc[upload.uploadStatus] = (acc[upload.uploadStatus] || 0) + 1;
+      return acc;
+    },
+    {
+      total: 0,
+      QUEUED: 0,
+      PROCESSING: 0,
+      UPLOADED: 0,
+      FAILED: 0,
+      ATTACHED: 0,
+      DELETED: 0,
+    },
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, "Upload session fetched successfully", {
+      uploadSessionId,
+      progress,
+      uploads,
     }),
   );
 });
@@ -196,17 +265,33 @@ const deletePrintingUpload = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Upload not found");
   }
 
-  if (upload.uploadStatus !== "UPLOADED") {
+  if (upload.uploadStatus === "PROCESSING") {
+    throw new ApiError(409, "Upload is being processed and cannot be removed now");
+  }
+
+  if (!["QUEUED", "UPLOADED", "FAILED"].includes(upload.uploadStatus)) {
     throw new ApiError(409, "Upload can no longer be removed");
   }
 
-  await deletePrintingFile({
-    storageKey: upload.storageKey,
-    resourceType: upload.resourceType,
-  });
+  if (upload.uploadStatus === "UPLOADED" && upload.storageKey && upload.resourceType) {
+    await deletePrintingFile({
+      storageKey: upload.storageKey,
+      resourceType: upload.resourceType,
+    });
+  }
+
+  if (upload.uploadStatus === "QUEUED" && upload.queueJobId) {
+    await removePrintingUploadJobIfPending(upload.queueJobId).catch(() => false);
+  }
+
+  if (upload.stagingFileId) {
+    await deleteStagedPrintingFile(upload.stagingFileId).catch(() => null);
+  }
 
   upload.uploadStatus = "DELETED";
   upload.deletedAt = new Date();
+  upload.processedAt = upload.processedAt || new Date();
+  upload.stagingFileId = null;
   await upload.save();
 
   return res.status(200).json(new ApiResponse(200, "Upload removed successfully"));
@@ -420,8 +505,11 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
       await emailServices.queuePrintingOrderCreatedEmail({
         to: user.email,
         subject: `Print order ${createdOrder.orderNumber} created`,
-        text: `Your print order ${createdOrder.orderNumber} has been created.`,
-        printingOrderCreatedHtml: buildPrintingCreatedHtml({
+        text: generatePrintingOrderCreatedText({
+          orderNumber: createdOrder.orderNumber,
+          amount: createdOrder.pricingSnapshot.finalAmount,
+        }),
+        printingOrderCreatedHtml: generatePrintingOrderCreatedHTML({
           username: user.username,
           orderNumber: createdOrder.orderNumber,
           amount: createdOrder.pricingSnapshot.finalAmount,
@@ -437,8 +525,12 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
           emailServices.queueAdminPrintingOrderCreatedEmail({
             to: admin.email,
             subject: `New print order ${createdOrder.orderNumber}`,
-            text: `A new print order ${createdOrder.orderNumber} has been placed.`,
-            adminPrintingOrderCreatedHtml: buildAdminPrintingCreatedHtml({
+            text: generateAdminPrintingOrderCreatedText({
+              orderNumber: createdOrder.orderNumber,
+              userName: user?.username || "user",
+              contactMobile: createdOrder.contactMobile,
+            }),
+            adminPrintingOrderCreatedHtml: generateAdminPrintingOrderCreatedHTML({
               username: admin.username,
               orderNumber: createdOrder.orderNumber,
               userName: user?.username || "user",
@@ -600,6 +692,8 @@ const getPrintingConfigForUser = asyncHandler(async (req, res) => {
 
 export default {
   uploadPrintingFiles,
+  getPrintingUploadById,
+  getPrintingUploadSessionStatus,
   deletePrintingUpload,
   createPrintingOrder,
   getMyPrintingOrders,

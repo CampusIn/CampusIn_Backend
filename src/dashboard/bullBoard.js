@@ -4,6 +4,7 @@ import { ExpressAdapter } from "@bull-board/express";
 
 import { emailQueue } from "../queue/email.queue.js";
 import { printingQueue } from "../queue/printing.queue.js";
+import { printingUploadQueue } from "../queue/printingUpload.queue.js";
 
 const serverAdapter = new ExpressAdapter()
 
@@ -12,7 +13,8 @@ serverAdapter.setBasePath("/admin/queues")
 createBullBoard({
     queues:[
         new BullMQAdapter(emailQueue),
-        new BullMQAdapter(printingQueue)
+        new BullMQAdapter(printingQueue),
+        new BullMQAdapter(printingUploadQueue)
     ],
     serverAdapter
 })

@@ -11,7 +11,10 @@ import couponUsageModel from "../models/couponUsage.models.js";
 import generateOrderNumber from "../utils/orderNumber.utils.js";
 import userModel from "../models/user.models.js";
 import emailServices from "../services/emailQueue.services.js";
-import { generateAdminMarketplaceOrderHTML } from "../utils/utils.js";
+import {
+  generateAdminMarketplaceOrderHTML,
+  generateAdminMarketplaceOrderText,
+} from "../utils/utils.js";
 import {
   getMarketplaceOrderHistoryCached,
   setMarketplaceOrderHistoryCached,
@@ -347,7 +350,12 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
         emailServices.queueAdminMarketplaceOrderEmail({
           to: admin.email,
           subject: `New marketplace order ${order.orderNumber}`,
-          text: `A new marketplace order ${order.orderNumber} has been placed on CampusIn. Login to view details.`,
+          text: generateAdminMarketplaceOrderText({
+            orderNumber: order.orderNumber,
+            categoryName: order.categoryName,
+            customerPhone: order.customerPhone,
+            finalAmount: order.pricing.finalAmount,
+          }),
           adminMarketplaceOrderHtml: generateAdminMarketplaceOrderHTML({
             adminName: admin.username,
             orderNumber: order.orderNumber,

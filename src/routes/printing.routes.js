@@ -10,6 +10,7 @@ import {
   printingListQueryRules,
   printingOrderIdParamRules,
   printingUploadIdParamRules,
+  printingUploadSessionIdParamRules,
 } from "../validators/printing.validators.js";
 import {
   strictLimiter,
@@ -42,6 +43,22 @@ printingRouter.delete(
   blockMiddleware,
   printingUploadIdParamRules,
   printingController.deletePrintingUpload,
+);
+
+printingRouter.get(
+  "/uploads/:uploadId",
+  authMiddleware,
+  roleMiddleware("user"),
+  printingUploadIdParamRules,
+  printingController.getPrintingUploadById,
+);
+
+printingRouter.get(
+  "/uploads/session/:uploadSessionId",
+  authMiddleware,
+  roleMiddleware("user"),
+  printingUploadSessionIdParamRules,
+  printingController.getPrintingUploadSessionStatus,
 );
 
 printingRouter.post(

@@ -12,7 +12,7 @@ import platformSettingsModel from "../models/platformSettings.models.js";
 import couponUsageModel from "../models/couponUsage.models.js";
 import menuModel from "../models/menuItem.models.js";
 import emailServices from "../services/emailQueue.services.js";
-import { generateVendorNewOrderHTML } from "../utils/utils.js";
+import { generateVendorNewOrderHTML, generateVendorNewOrderText } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
 import { getCouponCached, setCouponCached, deleteCouponCached } from "../services/couponCached.services.js";
 import {
@@ -294,7 +294,12 @@ const createOrder = asyncHandler(async (req, res) => {
       await emailServices.queueVendorNewOrderEmail({
         to: vendorUser.email,
         subject: `New order for ${restaurant.restaurantName}`,
-        text: `You have received a new order ${order.orderNumber} on CampusIn. Login to view order details.`,
+        text: generateVendorNewOrderText({
+          orderNumber: order.orderNumber,
+          restaurantName: restaurant.restaurantName,
+          customerPhone: order.customerPhone,
+          totalAmount: order.totalAmount,
+        }),
         vendorOrderHtml: generateVendorNewOrderHTML({
           vendorName: vendorUser.username,
           restaurantName: restaurant.restaurantName,

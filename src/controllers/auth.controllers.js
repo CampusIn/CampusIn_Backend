@@ -7,7 +7,15 @@ import jwt from "jsonwebtoken";
 import emailServices from "../services/emailQueue.services.js";
 import otpServices from "../services/otp.services.js";
 import redisServices from "../services/redis.services.js";
-import { generateOTP, generateOtpHTML, generateWelcomeHTML,generateForgotPasswordHTML } from "../utils/utils.js";
+import {
+  generateOTP,
+  generateOtpHTML,
+  generateOtpText,
+  generateWelcomeHTML,
+  generateWelcomeText,
+  generateForgotPasswordHTML,
+  generateForgotPasswordText,
+} from "../utils/utils.js";
 import ApiError from "../utils/apiErrors.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -142,7 +150,7 @@ const register = asyncHandler(async (req, res) => {
   await emailServices.queueOTPEmail({
     to: normalizedEmail,
     subject: "Your OTP for CampusIn registration",
-    text: "OTP for CampusIn registration. Only valid for 5 minutes",
+    text: generateOtpText(otp),
     otpHtml: otpHTML,
   });
 
@@ -434,7 +442,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
   await emailServices.queueWelcomeEmail({
     to: normalizedEmail,
     subject: "Welcome to CAMPUSIN",
-    text: "Welcome to CAMPUSIN. Your account is verified and ready to use.",
+    text: generateWelcomeText(),
     welcomeHtml: generateWelcomeHTML(),
   })
 
@@ -499,7 +507,7 @@ const resendOTP = asyncHandler(async (req, res) => {
   await emailServices.queueOTPEmail({
     to:normalizedEmail,
     subject:"Hey, didn't you verify your email yet? Here's your OTP",
-    text:"Please use the following OTP to verify your email:",
+    text:generateOtpText(otp),
     otpHtml:otpHTML
   })
   
@@ -529,7 +537,7 @@ const forgotPassword = asyncHandler(async(req,res)=>{
   await emailServices.queueForgotEmail({
     to:normalisedEmail,
     subject:"Forgot your password? It happens.",
-    text:"Email regarding your password reset for CampusIn",
+    text:generateForgotPasswordText(otp),
     forgotHtml
   })
 

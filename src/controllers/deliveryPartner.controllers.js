@@ -7,7 +7,10 @@ import userModel from "../models/user.models.js";
 import marketPlaceOrderModel from "../models/marketPlaceOrders.models.js";
 import mongoose from "mongoose";
 import emailServices from "../services/emailQueue.services.js";
-import { generateDeliveryAssignmentHTML } from "../utils/utils.js";
+import {
+  generateDeliveryAssignmentHTML,
+  generateDeliveryAssignmentText,
+} from "../utils/utils.js";
 import { deleteOrderHistoryCached } from "../services/orderHistoryCached.services.js";
 import { deleteMarketplaceOrderHistoryCached } from "../services/marketPlaceOrderHistoryCached.services.js";
 
@@ -174,7 +177,12 @@ const assignPartner = asyncHandler(async (req, res) => {
       await emailServices.queueDeliveryAssignmentEmail({
         to: deliveryPartner.user.email,
         subject: `New delivery assigned: ${order.orderNumber}`,
-        text: `You have been assigned a new delivery ${order.orderNumber} on CampusIn. Login to view delivery details.`,
+        text: generateDeliveryAssignmentText({
+          orderNumber: order.orderNumber,
+          pickupFrom: order.restaurantName,
+          customerPhone: order.customerPhone,
+          deliveryAddress: order.deliveryAddress,
+        }),
         deliveryAssignmentHtml: generateDeliveryAssignmentHTML({
           deliveryPartnerName: deliveryPartner.user.username,
           orderNumber: order.orderNumber,

@@ -79,6 +79,12 @@ Set `MONGO_URI` in `.env` to your MongoDB Atlas URI before startup.
 docker compose up -d --build
 ```
 
+To scale printing upload workers (example: 3 replicas):
+
+```bash
+docker compose up -d --scale worker-upload=3
+```
+
 3. Check container health:
 
 ```bash
@@ -89,6 +95,14 @@ docker compose ps
 
 ```bash
 docker compose logs -f backend
+```
+
+Tail worker logs:
+
+```bash
+docker compose logs -f worker-upload
+docker compose logs -f worker-email
+docker compose logs -f worker-maintenance
 ```
 
 5. Stop services:

@@ -36,29 +36,61 @@ const printingUploadSchema = new mongoose.Schema(
     },
     storageKey: {
       type: String,
-      required: true,
+      required: false,
+      default: null,
       unique: true,
+      sparse: true,
     },
     resourceType: {
       type: String,
-      required: true,
+      required: false,
       enum: ["image", "raw"],
+      default: null,
     },
     pageCount: {
       type: Number,
-      required: true,
+      required: false,
       min: 1,
+      default: null,
     },
     checksumSha256: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: null,
     },
     uploadStatus: {
       type: String,
-      enum: ["UPLOADED", "ATTACHED", "EXPIRED", "DELETED"],
-      default: "UPLOADED",
+      enum: ["QUEUED", "PROCESSING", "UPLOADED", "FAILED", "ATTACHED", "DELETED"],
+      default: "QUEUED",
       index: true,
+    },
+    uploadSessionId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    queueJobId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    stagingFileId: {
+      type: String,
+      default: null,
+    },
+    processingStartedAt: {
+      type: Date,
+      default: null,
+    },
+    processedAt: {
+      type: Date,
+      default: null,
+    },
+    failureReason: {
+      type: String,
+      default: null,
+      trim: true,
     },
     printingOrder: {
       type: mongoose.Schema.Types.ObjectId,

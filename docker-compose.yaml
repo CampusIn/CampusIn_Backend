@@ -14,6 +14,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+      RUN_INLINE_WORKERS: "false"
     depends_on:
       redis:
         condition: service_healthy
@@ -22,11 +23,31 @@ services:
     networks:
       - backend_private
 
-  worker:
+  worker-upload:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: campusin-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+      PRINTING_UPLOAD_WORKER_CONCURRENCY: ${PRINTING_UPLOAD_WORKER_CONCURRENCY:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["node", "src/workers/startUploadWorker.js"]
+    networks:
+      - backend_private
+
+  worker-email:
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
       - .env
@@ -39,7 +60,27 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    command: ["node", "src/workers/email.workers.js"]
+    command: ["node", "src/workers/startEmailWorker.js"]
+    networks:
+      - backend_private
+
+  worker-maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["node", "src/workers/startMaintenanceWorker.js"]
     networks:
       - backend_private
 
