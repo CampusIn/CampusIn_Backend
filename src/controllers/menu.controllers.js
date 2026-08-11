@@ -22,7 +22,13 @@ const createMenuItem = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Forbidden");
   }
   const { name, description, price, category, mrp, foodType } = req.body;
-  if (mrp < price) {
+  const normalizedMrp = mrp === undefined || mrp === null || mrp === "" ? price : Number(mrp);
+
+  if (!Number.isFinite(normalizedMrp)) {
+    throw new ApiError(400, "Invalid MRP");
+  }
+
+  if (normalizedMrp < price) {
     throw new ApiError(400, "MRP cannot be less than price");
   }
   const imageLocalPath = req.file?.path;
@@ -34,10 +40,10 @@ const createMenuItem = asyncHandler(async (req, res) => {
   const menuCreated = await menuModel.create({
     restaurant: restaurantId,
     name,
-    description,
+    description: description ?? "",
     price,
     category,
-    mrp,
+    mrp: normalizedMrp,
     foodType,
     image: imageUrl,
   });

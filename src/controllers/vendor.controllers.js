@@ -255,22 +255,29 @@ const bulkUpload = asyncHandler(async (req, res) => {
 
   // Validate menu data before uploading images
   items.forEach((item) => {
+    const hasMrp = !(item.mrp === undefined || item.mrp === null || item.mrp === "");
+    const normalizedMrp = hasMrp ? Number(item.mrp) : Number(item.price);
+
     if (
       !item.name ||
-      !item.description ||
-      item.mrp === undefined ||
       item.price === undefined ||
       !item.foodType
     ) {
       throw new ApiError(
         400,
-        "Each item must contain name, description, mrp, price",
+        "Each item must contain name, price, foodType",
       );
     }
 
-    if (item.mrp < item.price) {
+    if (!Number.isFinite(normalizedMrp)) {
+      throw new ApiError(400, `Invalid MRP for ${item.name}`);
+    }
+
+    if (normalizedMrp < Number(item.price)) {
       throw new ApiError(400, `MRP cannot be less than price for ${item.name}`);
     }
+
+    item.mrp = normalizedMrp;
   });
 
   const imageUrls = await Promise.all(
@@ -280,7 +287,7 @@ const bulkUpload = asyncHandler(async (req, res) => {
   const menuItems = items.map((item, index) => ({
     restaurant: restaurant._id,
     name: item.name,
-    description: item.description,
+    description: item.description ?? "",
     mrp: item.mrp,
     price: item.price,
     category: item.category || "Uncategorized",
