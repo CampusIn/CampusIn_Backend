@@ -8,6 +8,10 @@ import userModel from "../models/user.models.js";
 import { ensurePrintingConfig } from "../services/printingConfig.services.js";
 import { downloadPrivatePrintingFile } from "../services/printingStorage.services.js";
 import emailServices from "../services/emailQueue.services.js";
+import {
+  generatePrintingOrderStatusHTML,
+  generatePrintingOrderStatusText,
+} from "../utils/utils.js";
 
 const getSafeDownloadName = (originalName = "file") => {
   return String(originalName)
@@ -22,11 +26,6 @@ const PRINTING_STATUS_TRANSITIONS = {
   CONFIRMED: ["PRINTING", "REJECTED", "CANCELLED"],
   PRINTING: ["READY_FOR_PICKUP", "CANCELLED"],
   READY_FOR_PICKUP: ["COMPLETED", "CANCELLED"],
-};
-
-const buildPrintingStatusHtml = ({ username, orderNumber, status, note }) => {
-  const noteText = note ? `<p>Note: ${note}</p>` : "";
-  return `<p>Hi ${username || "there"},</p><p>Your print order <strong>${orderNumber}</strong> is now <strong>${status}</strong>.</p>${noteText}`;
 };
 
 const getRetentionDate = (days) => {
@@ -147,8 +146,12 @@ const updatePrintingOrderStatusAdmin = asyncHandler(async (req, res) => {
       await emailServices.queuePrintingOrderStatusUpdatedEmail({
         to: owner.email,
         subject: `Print order ${order.orderNumber} status updated`,
-        text: `Your print order ${order.orderNumber} is now ${orderStatus}.`,
-        printingOrderStatusHtml: buildPrintingStatusHtml({
+        text: generatePrintingOrderStatusText({
+          orderNumber: order.orderNumber,
+          status: orderStatus,
+          note: order.rejectionMsg,
+        }),
+        printingOrderStatusHtml: generatePrintingOrderStatusHTML({
           username: owner.username,
           orderNumber: order.orderNumber,
           status: orderStatus,

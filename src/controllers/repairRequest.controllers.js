@@ -17,7 +17,9 @@ import {
 } from "../services/repairRequestCached.services.js";
 import {
   generateAdminRepairRequestSubmittedHTML,
+  generateAdminRepairRequestSubmittedText,
   generateAdminRepairPriceDecisionHTML,
+  generateAdminRepairPriceDecisionText,
 } from "../utils/utils.js";
 
 const createRepairRequest = asyncHandler(async (req, res) => {
@@ -60,7 +62,12 @@ const createRepairRequest = asyncHandler(async (req, res) => {
         emailServices.queueAdminRepairRequestSubmittedEmail({
           to: admin.email,
           subject: `New repair request ${repairRequest.requestNumber}`,
-          text: `A new repair request ${repairRequest.requestNumber} has been submitted on CampusIn. Login to review the request.`,
+          text: generateAdminRepairRequestSubmittedText({
+            requestNumber: repairRequest.requestNumber,
+            serviceType: repairRequest.serviceType,
+            customerPhone: repairRequest.customerPhone,
+            pickupLocation: repairRequest.pickupLocation,
+          }),
           repairRequestSubmittedHtml: generateAdminRepairRequestSubmittedHTML({
             adminName: admin.username,
             requestNumber: repairRequest.requestNumber,
@@ -275,7 +282,11 @@ const customerDecision = asyncHandler(async (req, res) => {
         emailServices.queueAdminRepairPriceDecisionEmail({
           to: admin.email,
           subject: `Repair estimate ${requestStatus.toLowerCase()} by customer`,
-          text: `Customer has ${requestStatus.toLowerCase()} the repair estimate for request ${repairRequest.requestNumber}. Login to continue the workflow.`,
+          text: generateAdminRepairPriceDecisionText({
+            requestNumber: repairRequest.requestNumber,
+            requestStatus,
+            customerPhone: repairRequest.customerPhone,
+          }),
           repairPriceDecisionHtml: generateAdminRepairPriceDecisionHTML({
             adminName: admin.username,
             requestNumber: repairRequest.requestNumber,

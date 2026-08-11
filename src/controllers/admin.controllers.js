@@ -22,10 +22,12 @@ import generateMarketPlaceInvoicePDF from "../services/marketPlaceInvoice.servic
 import emailServices from "../services/emailQueue.services.js";
 import {
   generateReminderHTML,
+  generateReminderText,
   generateRepairRequestEstimateHTML,
+  generateRepairRequestEstimateText,
   generateDeliveryAssignmentHTML,
+  generateDeliveryAssignmentText,
 } from "../utils/utils.js";
-import config from "../config/config.js";
 import {
   platformSettingsCached,
   setPlatformSettingsCached,
@@ -1285,16 +1287,8 @@ const sendReminder = asyncHandler(async (req, res) => {
     await emailServices.queueReminderEmail({
       to: user.email,
       subject: "Hey Cutie you left something delicious behind!",
-      text: `Hi Joel,
-
-You left some delicious items in your CAMPUSIN cart.
-
-Complete your order here:
-
-${config.CLIENT_ID}/cart
-
-Team CAMPUSIN`,
-      reminderHtml: generateReminderHTML(),
+      text: generateReminderText(user.username || "there"),
+      reminderHtml: generateReminderHTML(user.username || "there"),
     });
   } catch (error) {
     throw new ApiError(400, "Error in queuing email");
@@ -2228,7 +2222,12 @@ const assignMarketPlaceDeliveryPartnerAdmin = asyncHandler(async (req, res) => {
       await emailServices.queueDeliveryAssignmentEmail({
         to: deliveryPartner.user.email,
         subject: `New delivery assigned: ${order.orderNumber}`,
-        text: `You have been assigned a new delivery ${order.orderNumber} on CampusIn. Login to view delivery details.`,
+        text: generateDeliveryAssignmentText({
+          orderNumber: order.orderNumber,
+          pickupFrom: `Marketplace - ${order.categoryName}`,
+          customerPhone: order.customerPhone,
+          deliveryAddress: order.deliveryAddressSnapShot,
+        }),
         deliveryAssignmentHtml: generateDeliveryAssignmentHTML({
           deliveryPartnerName: deliveryPartner.user.username,
           orderNumber: order.orderNumber,
@@ -2419,7 +2418,11 @@ const sendRepairRequestEstimateAdmin = asyncHandler(async (req, res) => {
     await emailServices.queueRepairRequestEstimateEmail({
       to: repairRequest.user.email,
       subject: `Repair estimate for ${repairRequest.requestNumber}`,
-      text: "This email is regarding your repair request submitted in CampusIn. If you are not able to view this email, kindly login to the CampusIn portal",
+      text: generateRepairRequestEstimateText({
+        requestNumber: repairRequest.requestNumber,
+        estimatedPrice,
+        adminRemarks,
+      }),
       estimateHtml: generateRepairRequestEstimateHTML(
         repairRequest,
         estimatedPrice,

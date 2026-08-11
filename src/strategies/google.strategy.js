@@ -2,7 +2,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import config from "../config/config.js";
 import userModel from "../models/user.models.js";
 import emailServices from "../services/emailQueue.services.js";
-import { generateWelcomeHTML } from "../utils/utils.js";
+import { generateWelcomeHTML, generateWelcomeText } from "../utils/utils.js";
 
 const googleStrategy = new GoogleStrategy(
   {
@@ -45,8 +45,7 @@ const googleStrategy = new GoogleStrategy(
           emailServices.queueWelcomeEmail({
             to: email,
             subject: "Welcome to CAMPUSIN",
-            text:
-              "Welcome to CAMPUSIN. Your account is verified and ready to use.",
+            text: generateWelcomeText(),
             welcomeHtml: generateWelcomeHTML(),
           });
         }
@@ -69,8 +68,7 @@ const googleStrategy = new GoogleStrategy(
       emailServices.queueWelcomeEmail({
             to: email,
             subject: "Welcome to CAMPUSIN",
-            text:
-              "Welcome to CAMPUSIN. Your account is verified and ready to use.",
+            text: generateWelcomeText(),
             welcomeHtml: generateWelcomeHTML(),
           });
 

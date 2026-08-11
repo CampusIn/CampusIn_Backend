@@ -21,6 +21,12 @@ import {
   queuePrintingUploadJob,
   removePrintingUploadJobIfPending,
 } from "../services/printingUploadQueue.services.js";
+import {
+  generateAdminPrintingOrderCreatedHTML,
+  generateAdminPrintingOrderCreatedText,
+  generatePrintingOrderCreatedHTML,
+  generatePrintingOrderCreatedText,
+} from "../utils/utils.js";
 
 const ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
 const getSafeDownloadName = (originalName = "file") => {
@@ -28,19 +34,6 @@ const getSafeDownloadName = (originalName = "file") => {
     .replace(/[\r\n]/g, "")
     .replace(/[^a-zA-Z0-9._-]/g, "_")
     .slice(0, 200);
-};
-
-const buildPrintingCreatedHtml = ({ username, orderNumber, amount }) => {
-  return `<p>Hi ${username || "there"},</p><p>Your print order <strong>${orderNumber}</strong> is created.</p><p>Total: INR ${amount}</p>`;
-};
-
-const buildAdminPrintingCreatedHtml = ({
-  username,
-  orderNumber,
-  userName,
-  contactMobile,
-}) => {
-  return `<p>Hi ${username || "admin"},</p><p>New print order <strong>${orderNumber}</strong> was created by ${userName}.</p><p>Contact mobile: ${contactMobile}</p>`;
 };
 
 const getIdempotencyCacheKey = (userId, idempotencyKey) => {
@@ -512,8 +505,11 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
       await emailServices.queuePrintingOrderCreatedEmail({
         to: user.email,
         subject: `Print order ${createdOrder.orderNumber} created`,
-        text: `Your print order ${createdOrder.orderNumber} has been created.`,
-        printingOrderCreatedHtml: buildPrintingCreatedHtml({
+        text: generatePrintingOrderCreatedText({
+          orderNumber: createdOrder.orderNumber,
+          amount: createdOrder.pricingSnapshot.finalAmount,
+        }),
+        printingOrderCreatedHtml: generatePrintingOrderCreatedHTML({
           username: user.username,
           orderNumber: createdOrder.orderNumber,
           amount: createdOrder.pricingSnapshot.finalAmount,
@@ -529,8 +525,12 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
           emailServices.queueAdminPrintingOrderCreatedEmail({
             to: admin.email,
             subject: `New print order ${createdOrder.orderNumber}`,
-            text: `A new print order ${createdOrder.orderNumber} has been placed.`,
-            adminPrintingOrderCreatedHtml: buildAdminPrintingCreatedHtml({
+            text: generateAdminPrintingOrderCreatedText({
+              orderNumber: createdOrder.orderNumber,
+              userName: user?.username || "user",
+              contactMobile: createdOrder.contactMobile,
+            }),
+            adminPrintingOrderCreatedHtml: generateAdminPrintingOrderCreatedHTML({
               username: admin.username,
               orderNumber: createdOrder.orderNumber,
               userName: user?.username || "user",
