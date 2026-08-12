@@ -162,6 +162,13 @@ const uploadPrintingFiles = asyncHandler(async (req, res) => {
       stagedFileIds.pop();
     }
   } catch (error) {
+    console.error("Printing upload queueing failed", {
+      requestId: req.requestId,
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+    });
+
     await Promise.all(
       stagedFileIds.map((stagingFileId) => deleteStagedPrintingFile(stagingFileId).catch(() => null)),
     );

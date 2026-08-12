@@ -37,9 +37,7 @@ const printingUploadSchema = new mongoose.Schema(
     storageKey: {
       type: String,
       required: false,
-      default: null,
-      unique: true,
-      sparse: true,
+      default: undefined,
     },
     resourceType: {
       type: String,
@@ -109,6 +107,16 @@ const printingUploadSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  },
+);
+
+printingUploadSchema.index(
+  { storageKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      storageKey: { $type: "string" },
+    },
   },
 );
 
