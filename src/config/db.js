@@ -9,6 +9,32 @@ const toPositiveInt = (value, fallback) => {
   return parsed;
 };
 
+const ensurePrintingUploadStorageKeyIndex = async () => {
+  const collection = mongoose.connection.db.collection("printinguploads");
+  const indexes = await collection.indexes();
+  const storageKeyIndex = indexes.find((index) => index.name === "storageKey_1");
+
+  if (
+    storageKeyIndex &&
+    !storageKeyIndex.partialFilterExpression?.storageKey &&
+    storageKeyIndex.unique
+  ) {
+    await collection.dropIndex("storageKey_1");
+    console.log("Dropped legacy storageKey_1 index on printinguploads");
+  }
+
+  await collection.createIndex(
+    { storageKey: 1 },
+    {
+      name: "storageKey_1",
+      unique: true,
+      partialFilterExpression: {
+        storageKey: { $type: "string" },
+      },
+    },
+  );
+};
+
 const connectDB = async () => {
   try {
     await mongoose.connect(config.MONGO_URI, {
@@ -23,6 +49,8 @@ const connectDB = async () => {
       maxIdleTimeMS: toPositiveInt(process.env.MONGO_MAX_IDLE_TIME_MS, 30000),
       autoIndex: process.env.NODE_ENV !== "production",
     });
+
+    await ensurePrintingUploadStorageKeyIndex();
     console.log("MongoDB connected successfully");
   } catch (error) {
     console.log("Error connecting to MongoDB:", error);
