@@ -254,7 +254,13 @@ const bulkUpload = asyncHandler(async (req, res) => {
   }
 
   // Validate menu data before uploading images
-  items.forEach((item) => {
+  const normalizedItems = items.map((item, index) => ({
+    ...item,
+    index,
+    name: String(item?.name || "").trim(),
+  }));
+
+  normalizedItems.forEach((item) => {
     if (
       !item.name ||
       !item.description ||
@@ -273,28 +279,103 @@ const bulkUpload = asyncHandler(async (req, res) => {
     }
   });
 
-  const imageUrls = await Promise.all(
-    files.map((file) => uploadOnCloudinary(file.path)),
+  const requestNameSet = new Set();
+  const duplicatedRequestNames = [];
+
+  normalizedItems.forEach((item) => {
+    if (requestNameSet.has(item.name)) {
+      duplicatedRequestNames.push(item.name);
+      return;
+    }
+
+    requestNameSet.add(item.name);
+  });
+
+  if (duplicatedRequestNames.length > 0) {
+    throw new ApiError(
+      400,
+      `Duplicate item names in uploaded file: ${[...new Set(duplicatedRequestNames)].join(", ")}`,
+    );
+  }
+
+  const requestedNames = normalizedItems.map((item) => item.name);
+  const existingMenus = await menuModel
+    .find({
+      restaurant: restaurant._id,
+      name: { $in: requestedNames },
+    })
+    .select("name");
+
+  const existingNameSet = new Set(existingMenus.map((menu) => menu.name));
+  const itemsToCreate = normalizedItems.filter(
+    (item) => !existingNameSet.has(item.name),
   );
 
-  const menuItems = items.map((item, index) => ({
-    restaurant: restaurant._id,
-    name: item.name,
-    description: item.description,
-    mrp: item.mrp,
-    price: item.price,
-    category: item.category || "Uncategorized",
-    foodType: item.foodType,
-    image: imageUrls[index],
+  if (itemsToCreate.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(200, "No new menu items to upload", {
+        totalCreated: 0,
+        skippedCount: normalizedItems.length,
+        skippedNames: Array.from(existingNameSet),
+        menuItems: [],
+      }),
+    );
+  }
+
+  const imageUrls = await Promise.all(
+    itemsToCreate.map((item) => uploadOnCloudinary(files[item.index].path)),
+  );
+
+  const writeOperations = itemsToCreate.map((item, index) => ({
+    updateOne: {
+      filter: {
+        restaurant: restaurant._id,
+        name: item.name,
+      },
+      update: {
+        $setOnInsert: {
+          restaurant: restaurant._id,
+          name: item.name,
+          description: item.description,
+          mrp: item.mrp,
+          price: item.price,
+          category: item.category || "Uncategorized",
+          foodType: item.foodType,
+          image: imageUrls[index],
+        },
+      },
+      upsert: true,
+    },
   }));
 
-  const createdMenus = await menuModel.insertMany(menuItems);
+  const bulkWriteResult = await menuModel.bulkWrite(writeOperations, {
+    ordered: false,
+  });
 
-  return res.status(201).json(
-    new ApiResponse(201, "Menu items uploaded successfully", {
-      totalCreated: createdMenus.length,
-      menuItems: createdMenus,
-    }),
+  const upsertedIds = Object.values(bulkWriteResult.upsertedIds || {});
+  const createdMenus = upsertedIds.length
+    ? await menuModel.find({ _id: { $in: upsertedIds } })
+    : [];
+
+  if (createdMenus.length > 0) {
+    await deleteRestaurantMenuCached(restaurant._id);
+  }
+
+  const skippedNames = normalizedItems
+    .map((item) => item.name)
+    .filter((name) => !createdMenus.some((menu) => menu.name === name));
+
+  return res.status(createdMenus.length > 0 ? 201 : 200).json(
+    new ApiResponse(
+      createdMenus.length > 0 ? 201 : 200,
+      "Menu items processed successfully",
+      {
+        totalCreated: createdMenus.length,
+        skippedCount: skippedNames.length,
+        skippedNames,
+        menuItems: createdMenus,
+      },
+    ),
   );
 });
 
