@@ -41,6 +41,10 @@ const createPrintingOrderRules = [
     .withMessage("contactMobile is required")
     .isMobilePhone("en-IN")
     .withMessage("contactMobile must be a valid Indian mobile number"),
+  body("deliveryAddress")
+    .trim()
+    .notEmpty()
+    .withMessage("deliveryAddress is required"),
   body("paymentMethod")
     .optional()
     .isIn(["COD"])

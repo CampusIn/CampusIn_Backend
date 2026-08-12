@@ -332,7 +332,13 @@ const generatePrintingOrderCreatedText = ({ orderNumber, amount }) => {
   return `Your print order ${orderNumber} is created. Total: INR ${amount}. Ink is warming up.`;
 };
 
-const generateAdminPrintingOrderCreatedHTML = ({ username, orderNumber, userName, contactMobile }) => {
+const generateAdminPrintingOrderCreatedHTML = ({
+  username,
+  orderNumber,
+  userName,
+  contactMobile,
+  deliveryAddress,
+}) => {
   return renderLayout({
     title: "New print order received",
     subtitle: "Fresh print request alert",
@@ -340,13 +346,19 @@ const generateAdminPrintingOrderCreatedHTML = ({ username, orderNumber, userName
     body: `
       <p style="margin:0 0 14px;">Hi ${escapeHtml(username || "admin")},</p>
       <p style="margin:0 0 14px;">A new print order <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(orderNumber)}</strong> was placed by ${escapeHtml(userName)}.</p>
-      <p style="margin:0;"><strong>Contact mobile:</strong> ${escapeHtml(contactMobile)}</p>
+      <p style="margin:0 0 8px;"><strong>Contact mobile:</strong> ${escapeHtml(contactMobile)}</p>
+      <p style="margin:0;"><strong>Delivery address:</strong> ${escapeHtml(deliveryAddress)}</p>
     `,
   });
 };
 
-const generateAdminPrintingOrderCreatedText = ({ orderNumber, userName, contactMobile }) => {
-  return `New print order ${orderNumber} by ${userName}. Contact: ${contactMobile}.`;
+const generateAdminPrintingOrderCreatedText = ({
+  orderNumber,
+  userName,
+  contactMobile,
+  deliveryAddress,
+}) => {
+  return `New print order ${orderNumber} by ${userName}. Contact: ${contactMobile}. Delivery address: ${deliveryAddress}.`;
 };
 
 const generatePrintingOrderStatusHTML = ({ username, orderNumber, status, note }) => {
