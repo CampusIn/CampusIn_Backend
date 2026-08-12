@@ -22,9 +22,24 @@ const createMenuItem = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Forbidden");
   }
   const { name, description, price, category, mrp, foodType } = req.body;
+  const normalizedName = String(name || "").trim();
+
   if (mrp < price) {
     throw new ApiError(400, "MRP cannot be less than price");
   }
+
+  const existingMenu = await menuModel.findOne({
+    restaurant: restaurantId,
+    name: normalizedName,
+  });
+
+  if (existingMenu) {
+    throw new ApiError(
+      409,
+      `Menu item '${normalizedName}' already exists for this restaurant`,
+    );
+  }
+
   const imageLocalPath = req.file?.path;
   if (!imageLocalPath) {
     throw new ApiError(400, "Menu image is required");
@@ -33,7 +48,7 @@ const createMenuItem = asyncHandler(async (req, res) => {
 
   const menuCreated = await menuModel.create({
     restaurant: restaurantId,
-    name,
+    name: normalizedName,
     description,
     price,
     category,
@@ -113,6 +128,30 @@ const updateMenuItem = asyncHandler(async (req, res) => {
       filteredBody[field] = req.body[field];
     }
   });
+
+  if (filteredBody.name !== undefined) {
+    const normalizedName = String(filteredBody.name || "").trim();
+
+    if (!normalizedName) {
+      throw new ApiError(400, "Menu name cannot be empty");
+    }
+
+    const duplicateMenu = await menuModel.findOne({
+      restaurant: menuItem.restaurant,
+      name: normalizedName,
+      _id: { $ne: id },
+    });
+
+    if (duplicateMenu) {
+      throw new ApiError(
+        409,
+        `Menu item '${normalizedName}' already exists for this restaurant`,
+      );
+    }
+
+    filteredBody.name = normalizedName;
+  }
+
   const updatedMenu = await menuModel.findByIdAndUpdate(id, filteredBody, {
     returnDocument: "after",
   });

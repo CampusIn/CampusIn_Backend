@@ -195,6 +195,33 @@ app.use((err, req, res, next) => {
     });
   }
 
+  const isDuplicateKeyError =
+    err?.code === 11000 &&
+    ["MongoServerError", "MongoBulkWriteError"].includes(err?.name);
+
+  if (isDuplicateKeyError) {
+    const duplicateFields = Object.keys(err?.keyPattern || {});
+    const duplicateValues = Object.values(err?.keyValue || {}).filter(
+      (value) => value !== undefined && value !== null,
+    );
+
+    const duplicateDetails =
+      duplicateValues.length > 0
+        ? duplicateValues.join(", ")
+        : duplicateFields.join(", ");
+
+    return res.status(409).json({
+      statusCode: 409,
+      data: null,
+      message: duplicateDetails
+        ? `Duplicate value found: ${duplicateDetails}`
+        : "Duplicate value found",
+      success: false,
+      requestId: req.requestId,
+      errors: [],
+    });
+  }
+
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
   const isOperationalError = err instanceof ApiError;
 
