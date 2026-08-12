@@ -20,6 +20,13 @@ import {
   setOrderHistoryCached,
   deleteOrderHistoryCached,
 } from "../services/orderHistoryCached.services.js";
+import { redis } from "../config/redis.js";
+import {
+  IDEMPOTENCY_PENDING_VALUE,
+  acquireIdempotencySlot,
+  getUserIdempotencyCacheKey,
+  releaseIdempotencySlot,
+} from "../utils/idempotency.utils.js";
 
 
 const validateCartItems = (cartItems) => {
@@ -93,9 +100,47 @@ const restoreOrderStock = async (orderItems, session) => {
 };
 
 //User order section Start
+const FOOD_ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
+
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMethod, couponId, customerPhone, deliveryAddress } = req.body;
+  const idempotencyKey = req.headers["idempotency-key"];
+
+  let idempotencyCacheKey = null;
+  if (typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+    idempotencyCacheKey = getUserIdempotencyCacheKey({
+      scope: "food-order",
+      userId: req.user.id,
+      idempotencyKey: idempotencyKey.trim(),
+    });
+
+    const existingOrderId = await redis.get(idempotencyCacheKey);
+    if (existingOrderId && existingOrderId !== IDEMPOTENCY_PENDING_VALUE) {
+      const existingOrder = await orderModel.findOne({
+        _id: existingOrderId,
+        user: req.user.id,
+      });
+
+      if (existingOrder) {
+        return res.status(200).json(
+          new ApiResponse(200, "Order already created", {
+            applied: Boolean(existingOrder.coupon),
+            order: existingOrder,
+          }),
+        );
+      }
+    }
+
+    const acquired = await acquireIdempotencySlot(redis, idempotencyCacheKey);
+    if (!acquired) {
+      throw new ApiError(409, "Duplicate request in progress. Please retry shortly.");
+    }
+  }
+
   if (paymentMethod !== "COD" && paymentMethod !== "PAY_ON_PICKUP") {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(400, "Choose a payment method");
   }
 
@@ -108,14 +153,27 @@ const createOrder = asyncHandler(async (req, res) => {
     });
 
   if (!cart || cart.items.length === 0) {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(400, "Cart is empty");
   }
 
-  validateCartItems(cart.items);
+  try {
+    validateCartItems(cart.items);
+  } catch (error) {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
+    throw error;
+  }
 
   const restaurantId = cart.restaurant;
   const restaurant = await restaurantModel.findById(restaurantId);
   if (!restaurant) {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(404, "No such restaurant exists");
   }
   const restaurantName = restaurant.restaurantName;
@@ -141,6 +199,9 @@ const createOrder = asyncHandler(async (req, res) => {
   //If coupon is valid, then coupon discount is calculated
   if (couponId) {
     if (!mongoose.Types.ObjectId.isValid(couponId)) {
+      if (idempotencyCacheKey) {
+        await releaseIdempotencySlot(redis, idempotencyCacheKey);
+      }
       throw new ApiError(400, "Invalid Coupon ID");
     }
     const todayDate = new Date();
@@ -151,6 +212,9 @@ const createOrder = asyncHandler(async (req, res) => {
     });
 
     if (!coupon) {
+      if (idempotencyCacheKey) {
+        await releaseIdempotencySlot(redis, idempotencyCacheKey);
+      }
       throw new ApiError(404, "Coupon not found");
     }
 
@@ -160,14 +224,23 @@ const createOrder = asyncHandler(async (req, res) => {
     });
 
     if (alreadyUsed) {
+      if (idempotencyCacheKey) {
+        await releaseIdempotencySlot(redis, idempotencyCacheKey);
+      }
       throw new ApiError(400, "You have already used this coupon");
     }
 
     if (coupon.usageLimit <= coupon.usageCount) {
+      if (idempotencyCacheKey) {
+        await releaseIdempotencySlot(redis, idempotencyCacheKey);
+      }
       throw new ApiError(400, "Coupon usage limit is over");
     }
 
     if (subTotal < coupon.minimumOrderValue) {
+      if (idempotencyCacheKey) {
+        await releaseIdempotencySlot(redis, idempotencyCacheKey);
+      }
       throw new ApiError(
         400,
         "Total cart amount is lower than minimum order value for the coupon",
@@ -192,6 +265,9 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const platformSettings = await platformSettingsModel.findOne();
   if (!platformSettings) {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(404, "Platform settings not found");
   }
 
@@ -275,12 +351,24 @@ const createOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(
       500,
       "Unable to place your order right now. Please try again.",
     );
   } finally {
     session.endSession();
+  }
+
+  if (idempotencyCacheKey) {
+    await redis.set(
+      idempotencyCacheKey,
+      String(order._id),
+      "EX",
+      FOOD_ORDER_IDEMPOTENCY_TTL_SECONDS,
+    );
   }
 
   await deleteOrderHistoryCached(req.user.id);

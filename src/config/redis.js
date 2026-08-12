@@ -6,6 +6,8 @@ const isTestEnvironment = process.env.NODE_ENV === "test" || Boolean(process.env
 const commonRedisOptions = {
     maxRetriesPerRequest: null,
     enableReadyCheck:true,
+    connectTimeout: Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 10000),
+    keepAlive: Number(process.env.REDIS_KEEP_ALIVE_MS || 30000),
     lazyConnect: isTestEnvironment,
     retryStrategy: (times) => Math.min(times * 200, 2000),
 }

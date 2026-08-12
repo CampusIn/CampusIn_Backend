@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
 import authRouter from "./routes/auth.routes.js";
 import restaurantRoute from "./routes/restaurant.routes.js";
 import menuRouter from "./routes/menu.routes.js";
@@ -18,14 +19,59 @@ import { serverAdapter } from "./dashboard/bullBoard.js";
 import ApiError from "./utils/apiErrors.js";
 import passport from "./config/passport.js";
 import cors from "cors";
+import helmet from "helmet";
 import config from "./config/config.js";
 import repairRouter from "./routes/repairRequest.routes.js";
 import printingRouter from "./routes/printing.routes.js";
 import adminPrintingRouter from "./routes/adminPrinting.routes.js";
 import { authMiddleware } from "./middlewares/auth.middlewares.js";
 import roleMiddleware from "./middlewares/role.middleware.js";
+import { redis } from "./config/redis.js";
+import requestIdMiddleware from "./middlewares/requestId.middleware.js";
 
 const app = express();
+const readinessTimeoutMs = Number(process.env.READINESS_TIMEOUT_MS || 1000);
+
+const withTimeout = async (promise, timeoutMs) => {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("Operation timed out"));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const parseTrustProxy = (value) => {
+  if (value === undefined) {
+    return 1;
+  }
+
+  const normalizedValue = String(value).trim().toLowerCase();
+  if (["true", "1", "yes"].includes(normalizedValue)) {
+    return true;
+  }
+  if (["false", "0", "no"].includes(normalizedValue)) {
+    return false;
+  }
+
+  const numericValue = Number(value);
+  if (!Number.isNaN(numericValue)) {
+    return numericValue;
+  }
+
+  return value;
+};
+
+app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY));
+morgan.token("request-id", (req) => req.requestId || "-");
+
 const normalizeOrigin = (origin) => origin?.replace(/\/$/, "");
 const allowedOrigins = [
   "http://localhost:5173",
@@ -37,7 +83,13 @@ const allowedOrigins = [
 
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
-app.use(morgan("dev"));
+app.use(requestIdMiddleware);
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  }),
+);
+app.use(morgan(":method :url :status :response-time ms requestId=:request-id"));
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use(
@@ -74,6 +126,28 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.get("/ready", async (req, res) => {
+  const mongoReady = mongoose.connection.readyState === 1;
+
+  let redisReady = false;
+  try {
+    await withTimeout(redis.ping(), readinessTimeoutMs);
+    redisReady = true;
+  } catch {
+    redisReady = false;
+  }
+
+  const isReady = mongoReady && redisReady;
+  return res.status(isReady ? 200 : 503).json({
+    success: isReady,
+    status: isReady ? "ready" : "not_ready",
+    checks: {
+      mongo: mongoReady ? "ok" : "not_ready",
+      redis: redisReady ? "ok" : "not_ready",
+    },
+  });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api", restaurantRoute);
 app.use("/api/restaurants", menuRouter);
@@ -99,6 +173,7 @@ app.use((req, res) => {
     data: null,
     message: `Route not found: ${req.method} ${req.originalUrl}`,
     success: false,
+    requestId: req.requestId,
     errors: [],
   });
 });
@@ -115,6 +190,7 @@ app.use((err, req, res, next) => {
       data: null,
       message,
       success: false,
+      requestId: req.requestId,
       errors: [],
     });
   }
@@ -138,6 +214,7 @@ app.use((err, req, res, next) => {
       ? err.message
       : "Something went wrong. Please try again later.",
     success: false,
+    requestId: req.requestId,
     errors: responseErrors,
   });
 });

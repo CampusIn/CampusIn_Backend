@@ -21,8 +21,16 @@ import {
   deleteMarketplaceOrderHistoryCached,
 } from "../services/marketPlaceOrderHistoryCached.services.js";
 import { deleteProductCached } from "../services/marketPlaceProductsCached.services.js";
+import { redis } from "../config/redis.js";
+import {
+  IDEMPOTENCY_PENDING_VALUE,
+  acquireIdempotencySlot,
+  getUserIdempotencyCacheKey,
+  releaseIdempotencySlot,
+} from "../utils/idempotency.utils.js";
 
 const allowedPaymentMethods = ["COD", "PAY_ON_PICKUP"];
+const MARKETPLACE_ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
 
 const validateMarketCartItems = (cartItems) => {
   cartItems.forEach((item) => {
@@ -194,6 +202,7 @@ const redeemCouponForMarketOrder = async (coupon, userId, orderId, session) => {
 
 const createMarketPlaceOrder = asyncHandler(async (req, res) => {
   const { paymentMethod, customerPhone, deliveryAddress, couponId } = req.body;
+  const idempotencyKey = req.headers["idempotency-key"];
 
   if (!allowedPaymentMethods.includes(paymentMethod)) {
     throw new ApiError(400, "Choose a payment method");
@@ -280,6 +289,37 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
   const finalAmount =
     pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
 
+  let idempotencyCacheKey = null;
+  if (typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+    idempotencyCacheKey = getUserIdempotencyCacheKey({
+      scope: "marketplace-order",
+      userId: req.user.id,
+      idempotencyKey: idempotencyKey.trim(),
+    });
+
+    const existingOrderId = await redis.get(idempotencyCacheKey);
+    if (existingOrderId && existingOrderId !== IDEMPOTENCY_PENDING_VALUE) {
+      const existingOrder = await marketPlaceOrderModel.findOne({
+        _id: existingOrderId,
+        user: req.user.id,
+      });
+
+      if (existingOrder) {
+        return res.status(200).json(
+          new ApiResponse(200, "Marketplace order already created", {
+            applied: Boolean(coupon),
+            order: existingOrder,
+          }),
+        );
+      }
+    }
+
+    const acquired = await acquireIdempotencySlot(redis, idempotencyCacheKey);
+    if (!acquired) {
+      throw new ApiError(409, "Duplicate request in progress. Please retry shortly.");
+    }
+  }
+
   const session = await mongoose.startSession();
   let order;
 
@@ -328,12 +368,24 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
     throw new ApiError(
       500,
       "Unable to place your marketplace order right now. Please try again.",
     );
   } finally {
     session.endSession();
+  }
+
+  if (idempotencyCacheKey) {
+    await redis.set(
+      idempotencyCacheKey,
+      String(order._id),
+      "EX",
+      MARKETPLACE_ORDER_IDEMPOTENCY_TTL_SECONDS,
+    );
   }
 
   await Promise.all([
