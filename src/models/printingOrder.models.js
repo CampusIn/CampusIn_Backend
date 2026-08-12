@@ -174,6 +174,11 @@ const printingOrderSchema = new mongoose.Schema(
       trim: true,
       required: [true, "Contact mobile number is required"],
     },
+    deliveryAddress: {
+      type: String,
+      trim: true,
+      required: [true, "Delivery address is required"],
+    },
     files: {
       type: [printingOrderFileSchema],
       validate: {

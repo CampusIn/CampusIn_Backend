@@ -303,10 +303,13 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
     printingOptions = {},
     paymentMethod = "COD",
     contactMobile,
+    deliveryAddress,
   } = req.body;
   const idempotencyKey = req.headers["idempotency-key"];
   const normalizedContactMobile =
     typeof contactMobile === "string" ? contactMobile.trim() : "";
+  const normalizedDeliveryAddress =
+    typeof deliveryAddress === "string" ? deliveryAddress.trim() : "";
 
   if (paymentMethod !== "COD") {
     throw new ApiError(400, "Only COD is supported for printing orders");
@@ -314,6 +317,10 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
 
   if (!normalizedContactMobile) {
     throw new ApiError(400, "contactMobile is required");
+  }
+
+  if (!normalizedDeliveryAddress) {
+    throw new ApiError(400, "deliveryAddress is required");
   }
 
   const printingConfig = await ensurePrintingConfig();
@@ -431,6 +438,7 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
           user: req.user.id,
           orderNumber: generatePrintingOrderNumber(),
           contactMobile: normalizedContactMobile,
+          deliveryAddress: normalizedDeliveryAddress,
           files: filesSnapshot,
           printingOptions: {
             copies,
@@ -529,12 +537,14 @@ const createPrintingOrder = asyncHandler(async (req, res) => {
               orderNumber: createdOrder.orderNumber,
               userName: user?.username || "user",
               contactMobile: createdOrder.contactMobile,
+              deliveryAddress: createdOrder.deliveryAddress,
             }),
             adminPrintingOrderCreatedHtml: generateAdminPrintingOrderCreatedHTML({
               username: admin.username,
               orderNumber: createdOrder.orderNumber,
               userName: user?.username || "user",
               contactMobile: createdOrder.contactMobile,
+              deliveryAddress: createdOrder.deliveryAddress,
             }),
           }),
         ),
