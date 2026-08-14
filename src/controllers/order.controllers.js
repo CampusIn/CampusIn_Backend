@@ -11,6 +11,7 @@ import couponModel from "../models/coupon.models.js";
 import platformSettingsModel from "../models/platformSettings.models.js";
 import couponUsageModel from "../models/couponUsage.models.js";
 import menuModel from "../models/menuItem.models.js";
+import deliveryPartnerModel from "../models/deliveryPartner.models.js";
 import emailServices from "../services/emailQueue.services.js";
 import { generateVendorNewOrderHTML, generateVendorNewOrderText } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
@@ -723,16 +724,17 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new ApiError(400, "Invalid order ID");
   }
-  const allowedStatus = ["CONFIRMED", "PREPARING", "READY", "REJECTED"];
+  const allowedStatus = [
+    "CONFIRMED",
+    "PREPARING",
+    "READY",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "REJECTED",
+  ];
 
   const isValidStatus = allowedStatus.includes(orderStatus);
   if (!isValidStatus) {
-    if (orderStatus === "DELIVERED") {
-      throw new ApiError(
-        403,
-        "Only delivery partner can mark order as DELIVERED",
-      );
-    }
     throw new ApiError(400, "Invalid Order status");
   }
 
@@ -749,6 +751,20 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
 
   if (["DELIVERED", "CANCELLED", "REJECTED"].includes(order.orderStatus)) {
     throw new ApiError(409, "Order is in a final state, no more changes can be made");
+  }
+
+  if (orderStatus === "OUT_FOR_DELIVERY" && order.orderStatus !== "READY") {
+    throw new ApiError(
+      400,
+      "Order must be READY before marking as OUT_FOR_DELIVERY",
+    );
+  }
+
+  if (orderStatus === "DELIVERED" && order.orderStatus !== "OUT_FOR_DELIVERY") {
+    throw new ApiError(
+      400,
+      "Order must be OUT_FOR_DELIVERY before marking as DELIVERED",
+    );
   }
 
   if(orderStatus === "REJECTED"){
@@ -770,6 +786,14 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
 
     order.orderStatus = orderStatus;
     await order.save({ session });
+
+    if (orderStatus === "DELIVERED" && order.deliveryPartner) {
+      await deliveryPartnerModel.findByIdAndUpdate(
+        order.deliveryPartner,
+        { isAvailable: true },
+        { session },
+      );
+    }
 
     await session.commitTransaction();
   } catch (error) {
