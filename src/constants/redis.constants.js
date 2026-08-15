@@ -15,7 +15,8 @@ export const REDIS_KEYS = {
     ADMIN_PRINTING_ORDER_CREATED:"ADMIN_PRINTING_ORDER_CREATED",
     COOLDOWN_KEY:"cooldown",
     RESET:"reset",
-    PLATFORM_SETTINGS:"paltform-settings",
+    PLATFORM_SETTINGS:"platform-settings",
+    PLATFORM_SETTINGS_LEGACY:"paltform-settings",
     BANNERS:"banners",
     ANNOUNCEMENTS:"announcements",
     REVIEW: function review(restaurantId, page, limit) {
