@@ -177,7 +177,7 @@ const viewUsers = asyncHandler(async (req, res) => {
     };
   }
   const [matchedUsers, totalUsers] = await Promise.all([
-    userModel.find(filter).skip(skip).limit(limitNumber).select("-password"),
+    ( userModel.find(filter).sort({createdAt:-1}).skip(skip).limit(limitNumber)).select("-password"),
 
     userModel.countDocuments(filter),
   ]);
@@ -223,7 +223,7 @@ const viewVendors = asyncHandler(async (req, res) => {
   const totalPages = Math.ceil(totalVendor / limitNumber);
 
   return res.status(200).json(
-    new ApiResponse(200, "Vendor details fetched successfully", {
+    new ApiResponse(200, "Vendor details fetched successfully",{
       venodors: matchedVendors,
       pagination: {
         page: pageNumber,

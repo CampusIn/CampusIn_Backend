@@ -272,6 +272,16 @@ const createOrder = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Platform settings not found");
   }
 
+  if (subTotal < platformSettings.minimumOrderValue) {
+    if (idempotencyCacheKey) {
+      await releaseIdempotencySlot(redis, idempotencyCacheKey);
+    }
+    throw new ApiError(
+      400,
+      `Minimum order value is ${platformSettings.minimumOrderValue}`,
+    );
+  }
+
   const gstPercentage = platformSettings.gstPercentage;
   const gstAmount = Math.round((pricingBase * gstPercentage) / 100);
   let deliveryCharge = platformSettings.deliveryCharge;
@@ -919,6 +929,13 @@ const applyCoupon = asyncHandler(async (req, res) => {
 
   if (!platformSettings) {
     throw new ApiError(404, "Platform settings not found");
+  }
+
+  if (cart.totalAmount < platformSettings.minimumOrderValue) {
+    throw new ApiError(
+      400,
+      `Minimum order value is ${platformSettings.minimumOrderValue}`,
+    );
   }
 
   const subTotal = cart.totalAmount;
