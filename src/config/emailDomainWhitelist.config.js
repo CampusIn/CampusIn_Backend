@@ -1,3 +1,3 @@
-const allowedEmailDomains = ["gmail.com", "nitj.ac.in"];
+const allowedEmailDomains = ["*"];
 
 export default allowedEmailDomains;

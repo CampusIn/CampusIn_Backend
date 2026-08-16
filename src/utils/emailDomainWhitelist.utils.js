@@ -14,9 +14,16 @@ const getEmailDomain = (email) => {
 
 const isAllowedEmailDomain = (email) => {
   const emailDomain = getEmailDomain(email);
-  return allowedEmailDomains
-    .map(normalizeEmailDomain)
-    .includes(emailDomain);
+  const normalizedAllowedDomains = allowedEmailDomains.map(normalizeEmailDomain);
+
+  if (
+    normalizedAllowedDomains.length === 0 ||
+    normalizedAllowedDomains.includes("*")
+  ) {
+    return true;
+  }
+
+  return normalizedAllowedDomains.includes(emailDomain);
 };
 
 const assertAllowedEmailDomain = (email) => {
