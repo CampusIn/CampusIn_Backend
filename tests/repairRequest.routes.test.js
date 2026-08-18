@@ -103,6 +103,8 @@ const createRepairRequest = async (user, overrides = {}) =>
     user: user._id,
     customerPhone: "9876543210",
     pickupLocation: "Hostel 1",
+    deviceCompany: "Apple",
+    modelName: "iPhone 13",
     serviceType: "MOBILE",
     description: "Screen issue",
     damageImages: ["https://cdn.example.com/image-1.jpg"],
@@ -262,6 +264,8 @@ describe("repair request routes", () => {
           .set(authHeader(user))
           .field("customerPhone", "9876543210")
           .field("pickupLocation", "Hostel 4")
+          .field("deviceCompany", "Samsung")
+          .field("modelName", "Galaxy S22")
           .field("serviceType", "MOBILE")
           .field("description", "Display is flickering"),
         2,
@@ -274,6 +278,8 @@ describe("repair request routes", () => {
         user: user._id.toString(),
         customerPhone: "9876543210",
         pickupLocation: "Hostel 4",
+        deviceCompany: "Samsung",
+        modelName: "Galaxy S22",
         serviceType: "MOBILE",
         description: "Display is flickering",
         requestStatus: "SUBMITTED",
@@ -289,6 +295,8 @@ describe("repair request routes", () => {
       expect(savedRequest).toMatchObject({
         customerPhone: "9876543210",
         pickupLocation: "Hostel 4",
+        deviceCompany: "Samsung",
+        modelName: "Galaxy S22",
         serviceType: "MOBILE",
         description: "Display is flickering",
         requestStatus: "SUBMITTED",
@@ -310,6 +318,8 @@ describe("repair request routes", () => {
           .set(authHeader(user))
           .field("customerPhone", "12345")
           .field("pickupLocation", "")
+          .field("deviceCompany", "")
+          .field("modelName", "")
           .field("serviceType", "PHONE")
           .field("description", ""),
         1,
@@ -322,6 +332,8 @@ describe("repair request routes", () => {
         expect.arrayContaining([
           expect.objectContaining({ field: "customerPhone" }),
           expect.objectContaining({ field: "pickupLocation" }),
+          expect.objectContaining({ field: "deviceCompany" }),
+          expect.objectContaining({ field: "modelName" }),
           expect.objectContaining({ field: "serviceType" }),
           expect.objectContaining({ field: "description" }),
         ]),
@@ -329,7 +341,7 @@ describe("repair request routes", () => {
       await expect(repairRequestModel.countDocuments()).resolves.toBe(0);
     });
 
-    it("returns 400 when no images are attached", async () => {
+    it("creates a repair request when no images are attached", async () => {
       // Arrange
       const user = await createUser({ username: "no-image-user" });
 
@@ -339,13 +351,21 @@ describe("repair request routes", () => {
         .set(authHeader(user))
         .field("customerPhone", "9876543210")
         .field("pickupLocation", "Hostel 4")
+        .field("deviceCompany", "OnePlus")
+        .field("modelName", "11R")
         .field("serviceType", "MOBILE")
         .field("description", "Broken screen");
 
       // Assert
-      expect(response.status).toBe(400);
-      expect(response.body.message).toBe("At least one image is required");
-      await expect(repairRequestModel.countDocuments()).resolves.toBe(0);
+      expect(response.status).toBe(201);
+      expect(response.body.message).toBe("Repair request created successfully");
+      expect(response.body.data.damageImages).toEqual([]);
+      expect(uploadOnCloudinaryMock).not.toHaveBeenCalled();
+
+      const savedRequest = await repairRequestModel
+        .findOne({ user: user._id })
+        .lean();
+      expect(savedRequest.damageImages).toEqual([]);
     });
 
     it("returns 500 when cloudinary upload fails", async () => {
@@ -360,6 +380,8 @@ describe("repair request routes", () => {
           .set(authHeader(user))
           .field("customerPhone", "9876543210")
           .field("pickupLocation", "Hostel 2")
+          .field("deviceCompany", "Google")
+          .field("modelName", "Pixel 8")
           .field("serviceType", "MOBILE")
           .field("description", "Charging port damaged"),
         1,
@@ -387,6 +409,8 @@ describe("repair request routes", () => {
           .set(authHeader(user))
           .field("customerPhone", "9876543210")
           .field("pickupLocation", "Hostel 9")
+          .field("deviceCompany", "Xiaomi")
+          .field("modelName", "Redmi Note 12")
           .field("serviceType", "MOBILE")
           .field("description", "Speaker not working"),
         1,
@@ -600,6 +624,8 @@ describe("repair request routes", () => {
         description: "Screen issue",
         pickupLocation: "Hostel 1",
         customerPhone: "9876543210",
+        deviceCompany: "Apple",
+        modelName: "iPhone 13",
         estimatedPrice: 450,
         adminRemarks: "Needs board replacement",
         requestStatus: "FORWARDED",
@@ -626,6 +652,8 @@ describe("repair request routes", () => {
         damageImages: ["https://cdn.example.com/cached.jpg"],
         pickupLocation: "Hostel 4",
         customerPhone: "9876543210",
+        deviceCompany: "Nothing",
+        modelName: "Phone (2)",
         estimatedPrice: 800,
         adminRemarks: "Cached remarks",
         requestStatus: "PRICE_SENT",

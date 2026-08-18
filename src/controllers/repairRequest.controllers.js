@@ -23,22 +23,28 @@ import {
 } from "../utils/utils.js";
 
 const createRepairRequest = asyncHandler(async (req, res) => {
-  const { serviceType, description, pickupLocation, customerPhone } = req.body;
-  const uploadedFiles = req.files;
-  if (!uploadedFiles || uploadedFiles.length === 0) {
-    throw new ApiError(400, "At least one image is required");
-  }
+  const {
+    serviceType,
+    description,
+    pickupLocation,
+    customerPhone,
+    deviceCompany,
+    modelName,
+  } = req.body;
+  const uploadedFiles = req.files || [];
 
-  let images;
-  try {
-    images = await Promise.all(
-      uploadedFiles.map((file) => uploadOnCloudinary(file.path)),
-    );
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "We couldn't upload your images right now. Please try again.",
-    );
+  let images = [];
+  if (uploadedFiles.length > 0) {
+    try {
+      images = await Promise.all(
+        uploadedFiles.map((file) => uploadOnCloudinary(file.path)),
+      );
+    } catch (error) {
+      throw new ApiError(
+        500,
+        "We couldn't upload your images right now. Please try again.",
+      );
+    }
   }
 
   const requestNumber = generateRequestNumber();
@@ -47,6 +53,8 @@ const createRepairRequest = asyncHandler(async (req, res) => {
     user: req.user.id,
     customerPhone,
     pickupLocation,
+    deviceCompany,
+    modelName,
     serviceType,
     description,
     damageImages: images,
@@ -157,7 +165,7 @@ const getAllRepairRequests = asyncHandler(async (req, res) => {
       .find(filter)
       .sort({ createdAt: -1 })
       .select(
-        "_id requestNumber serviceType estimatedPrice requestStatus createdAt",
+        "_id requestNumber serviceType deviceCompany modelName estimatedPrice requestStatus createdAt",
       )
       .skip(skip)
       .limit(limitNumber)
@@ -219,7 +227,7 @@ const getRequestById = asyncHandler(async (req, res) => {
       select: "name phoneNumber",
     })
     .select(
-      "requestNumber serviceType description damageImages pickupLocation customerPhone estimatedPrice adminRemarks requestStatus repairPartner createdAt updatedAt",
+      "requestNumber serviceType description damageImages pickupLocation customerPhone deviceCompany modelName estimatedPrice adminRemarks requestStatus repairPartner createdAt updatedAt",
     );
 
   if (!repairRequest) {

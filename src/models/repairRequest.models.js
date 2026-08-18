@@ -20,6 +20,18 @@ const repairRequestSchema = new mongoose.Schema(
       required: [true, "Pickup location is required"],
     },
 
+    deviceCompany: {
+      type: String,
+      trim: true,
+      required: [true, "Device company is required"],
+    },
+
+    modelName: {
+      type: String,
+      trim: true,
+      required: [true, "Model name is required"],
+    },
+
     serviceType: {
       type: String,
       enum: ["MOBILE", "LAPTOP", "COOLERS", "OTHERS"],
@@ -32,7 +44,7 @@ const repairRequestSchema = new mongoose.Schema(
     },
     damageImages: {
       type: [String],
-      required: true,
+      default: [],
     },
     estimatedPrice: {
       type: Number,

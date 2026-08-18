@@ -43,6 +43,13 @@ const createRepairRequestRules = [
     .notEmpty()
     .withMessage("Pickup location cannot be empty"),
 
+  body("deviceCompany")
+    .trim()
+    .notEmpty()
+    .withMessage("Device company cannot be empty"),
+
+  body("modelName").trim().notEmpty().withMessage("Model name cannot be empty"),
+
   body("serviceType")
     .notEmpty()
     .withMessage("Service type cannot be empty")
@@ -93,6 +100,18 @@ const updateRepairRequestRules = [
     .trim()
     .notEmpty()
     .withMessage("Pickup location cannot be empty"),
+
+  body("deviceCompany")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Device company cannot be empty"),
+
+  body("modelName")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Model name cannot be empty"),
 
   body("serviceType")
     .optional()
