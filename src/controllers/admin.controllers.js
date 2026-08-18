@@ -2286,7 +2286,7 @@ const getAllRepairRequestsAdmin = asyncHandler(async (req, res) => {
       .find(filter)
       .sort({ createdAt: -1 })
       .select(
-        "_id requestNumber user serviceType customerPhone pickupLocation estimatedPrice requestStatus repairPartner createdAt updatedAt",
+        "_id requestNumber user serviceType customerPhone pickupLocation deviceCompany modelName estimatedPrice requestStatus repairPartner createdAt updatedAt",
       )
       .populate({
         path: "user",
@@ -2348,7 +2348,7 @@ const getRepairRequestByIdAdmin = asyncHandler(async (req, res) => {
       select: "name phoneNumber specialisations isActive",
     })
     .select(
-      "requestNumber user serviceType description damageImages pickupLocation customerPhone estimatedPrice adminRemarks estimatedAt requestStatus acceptedAt repairPartner forwardedAt completedAt createdAt updatedAt",
+      "requestNumber user serviceType description damageImages pickupLocation customerPhone deviceCompany modelName estimatedPrice adminRemarks estimatedAt requestStatus acceptedAt repairPartner forwardedAt completedAt createdAt updatedAt",
     )
     .lean();
 
