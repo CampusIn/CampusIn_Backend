@@ -1,21 +1,21 @@
 import config from "../config/config.js";
 import nodemailer from "nodemailer";
 
-const smtp2goPort = Number(config.SMTP2GO_PORT);
+const zeptoMailPort = Number(config.ZEPTOMAIL_PORT);
 
 const transporter = nodemailer.createTransport({
-  host: config.SMTP2GO_HOST,
-  port: smtp2goPort,
-  secure: smtp2goPort === 465,
+  host: config.ZEPTOMAIL_HOST,
+  port: zeptoMailPort,
+  secure: zeptoMailPort === 465,
   auth: {
-    user: config.SMTP2GO_USER,
-    pass: config.SMTP2GO_PASS,
+    user: config.ZEPTOMAIL_USER,
+    pass: config.ZEPTOMAIL_PASS,
   },
 });
 
 const sendEmail = async (to, subject, text, html) => {
   const info = await transporter.sendMail({
-    from: `${config.SMTP2GO_FROM_NAME} <${config.SMTP2GO_FROM_EMAIL}>`,
+    from: `${config.ZEPTOMAIL_FROM_NAME} <${config.ZEPTOMAIL_FROM_EMAIL}>`,
     to,
     subject,
     text,
