@@ -1,20 +1,30 @@
 import config from "../config/config.js";
 
 const EMAIL_COLORS = {
-  primary: "#4A35E8",
-  background: "#FFFDF8",
-  cyan: "#20C7C9",
-  azure: "#2498E8",
-  coral: "#FF5A3D",
-  ink: "#1F1F2A",
-  muted: "#5A5D72",
-  border: "#E8E6FB",
+  canvas: "#eef0f5",
+  shellBorder: "#d8dcee",
+  cardTop: "#fde9cf",
+  cardMid: "#4a5fc7",
+  cardBottom: "#060816",
+  innerTop: "#f6eadb",
+  innerMid: "#3c4fb1",
+  innerBottom: "#080b1a",
+  textPrimary: "#f8fbff",
+  textSecondary: "#d4dffb",
+  textMuted: "#9ba5c7",
+  darkStrip: "#040612",
+  divider: "#2f3552",
+  accentBlue: "#7eb8ff",
+  accentAmber: "#ffd17f",
+  accentMint: "#81f2db",
+  accentRose: "#ff9d9d",
 };
 
 const EMAIL_ACCENTS = {
-  info: EMAIL_COLORS.cyan,
-  operational: EMAIL_COLORS.azure,
-  urgent: EMAIL_COLORS.coral,
+  info: EMAIL_COLORS.accentBlue,
+  operational: EMAIL_COLORS.accentMint,
+  urgent: EMAIL_COLORS.accentAmber,
+  danger: EMAIL_COLORS.accentRose,
 };
 
 const generateOTP = () => {
@@ -30,11 +40,45 @@ const escapeHtml = (value) => {
     .replace(/'/g, "&#39;");
 };
 
-const renderButton = ({ href, label, accentColor = EMAIL_COLORS.primary }) => {
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0 20px;"><tr><td><a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:${accentColor};color:#ffffff;text-decoration:none;font-size:14px;line-height:1.2;font-weight:700;">${escapeHtml(label)}</a></td></tr></table>`;
+const renderButton = ({ href, label, accentColor = EMAIL_COLORS.accentBlue }) => {
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px auto 0;"><tr><td align="center"><a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:${accentColor};color:#0c1025;text-decoration:none;font-size:13px;line-height:1.1;font-weight:800;letter-spacing:0.02em;">${escapeHtml(label)}</a></td></tr></table>`;
 };
 
-const renderLayout = ({ title, subtitle, accentColor, body }) => {
+const renderDetailRows = (rows = []) => {
+  if (!rows.length) {
+    return "";
+  }
+
+  const renderedRows = rows
+    .map(
+      (row) => `<tr>
+        <td style="padding:6px 0 4px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:1.5;">
+          <span style="color:${EMAIL_COLORS.textMuted};font-weight:600;">${escapeHtml(row.label)}:</span>
+          <span style="color:${EMAIL_COLORS.textPrimary};font-weight:700;"> ${escapeHtml(row.value)}</span>
+        </td>
+      </tr>`,
+    )
+    .join("");
+
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;">${renderedRows}</table>`;
+};
+
+const renderLayout = ({
+  title,
+  subtitle,
+  eyebrow = "campusin",
+  accentColor = EMAIL_COLORS.accentBlue,
+  body,
+  details = [],
+  ctaLabel,
+  ctaHref,
+  footerLead = "We are almost there.",
+  footerText = "Open CampusIn and keep the momentum going.",
+}) => {
+  const buttonBlock = ctaLabel && ctaHref
+    ? renderButton({ href: ctaHref, label: ctaLabel, accentColor })
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -42,41 +86,33 @@ const renderLayout = ({ title, subtitle, accentColor, body }) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(title)}</title>
   </head>
-  <body style="margin:0;padding:0;background:${EMAIL_COLORS.background};font-family:Arial,Helvetica,sans-serif;color:${EMAIL_COLORS.ink};">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${EMAIL_COLORS.background};padding:28px 12px;">
+  <body style="margin:0;padding:0;background:${EMAIL_COLORS.canvas};font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${EMAIL_COLORS.canvas};padding:38px 14px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid ${EMAIL_COLORS.border};border-radius:14px;overflow:hidden;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;border:1px solid ${EMAIL_COLORS.shellBorder};border-radius:22px;overflow:hidden;background:#ffffff;">
             <tr>
-              <td style="height:6px;background:${accentColor};line-height:6px;font-size:0;">&nbsp;</td>
-            </tr>
-            <tr>
-              <td style="padding:26px 30px 14px;">
-                <p style="margin:0;color:${EMAIL_COLORS.primary};font-size:18px;line-height:1.2;font-weight:800;letter-spacing:0.08em;">CAMPUSIN</p>
+              <td style="padding:16px 16px 0;background:linear-gradient(180deg, ${EMAIL_COLORS.cardTop} 0%, ${EMAIL_COLORS.cardMid} 55%, ${EMAIL_COLORS.cardBottom} 100%);">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-radius:56px 56px 0 0;background:linear-gradient(180deg, ${EMAIL_COLORS.innerTop} 0%, ${EMAIL_COLORS.innerMid} 53%, ${EMAIL_COLORS.innerBottom} 100%);">
+                  <tr>
+                    <td align="center" style="padding:66px 36px 54px;">
+                      <p style="margin:0;color:${EMAIL_COLORS.textPrimary};font-size:18px;line-height:1.2;font-weight:700;letter-spacing:0.02em;text-transform:lowercase;">${escapeHtml(eyebrow)}</p>
+                      <p style="margin:34px 0 16px;color:${EMAIL_COLORS.textSecondary};font-size:18px;line-height:1.35;">${escapeHtml(subtitle)}</p>
+                      <h1 style="margin:0;color:${EMAIL_COLORS.textPrimary};font-size:62px;line-height:1.03;font-weight:800;letter-spacing:-0.03em;">${escapeHtml(title)}</h1>
+                      <div style="margin:26px auto 0;width:76px;height:2px;background:${accentColor};line-height:2px;font-size:0;">&nbsp;</div>
+                      <div style="margin:24px auto 0;max-width:500px;color:${EMAIL_COLORS.textSecondary};font-size:16px;line-height:1.75;text-align:center;">${body}</div>
+                      ${renderDetailRows(details)}
+                      ${buttonBlock}
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 30px;"><div style="height:1px;background:${EMAIL_COLORS.border};line-height:1px;">&nbsp;</div></td>
-            </tr>
-            <tr>
-              <td style="padding:24px 30px 8px;">
-                <h1 style="margin:0;color:${EMAIL_COLORS.ink};font-size:27px;line-height:1.25;font-weight:800;">${escapeHtml(title)}</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 30px 28px;color:${EMAIL_COLORS.muted};font-size:15px;line-height:1.7;">
-                <p style="margin:0 0 14px;color:${EMAIL_COLORS.azure};font-weight:700;">${escapeHtml(subtitle)}</p>
-                ${body}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 30px 22px;">
-                <div style="height:1px;background:${EMAIL_COLORS.border};line-height:1px;">&nbsp;</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 30px 24px;color:${EMAIL_COLORS.muted};font-size:12px;line-height:1.6;">
-                <p style="margin:0;">You received this email because of activity on your CampusIn account.</p>
+              <td style="background:${EMAIL_COLORS.darkStrip};padding:38px 24px 34px;border-top:1px solid ${EMAIL_COLORS.divider};" align="center">
+                <p style="margin:0 0 8px;color:${EMAIL_COLORS.textPrimary};font-size:21px;line-height:1.4;font-weight:700;">${escapeHtml(footerLead)}</p>
+                <p style="margin:0;color:${EMAIL_COLORS.textSecondary};font-size:16px;line-height:1.6;">${escapeHtml(footerText)}</p>
+                <p style="margin:24px 0 0;color:${EMAIL_COLORS.textMuted};font-size:12px;line-height:1.5;">This email was sent because your CampusIn account did a thing.</p>
               </td>
             </tr>
           </table>
@@ -89,99 +125,108 @@ const renderLayout = ({ title, subtitle, accentColor, body }) => {
 
 const generateOtpHTML = (otp) => {
   return renderLayout({
-    title: "Your verification code",
-    subtitle: "Security with a side of sass",
+    title: "Use this OTP",
+    subtitle: "Before your snacks get trust issues",
     accentColor: EMAIL_ACCENTS.urgent,
-    body: `
-      <p style="margin:0 0 14px;">Almost in. Prove you are human (and not a very hungry robot) with this one-time code:</p>
-      <p style="margin:0 0 18px;color:${EMAIL_COLORS.primary};font-size:34px;line-height:1.2;font-weight:800;letter-spacing:0.16em;">${escapeHtml(otp)}</p>
-      <p style="margin:0 0 10px;">This OTP self-destructs in <strong style="color:${EMAIL_COLORS.coral};">5 minutes</strong>.</p>
-      <p style="margin:0;">If this was not you, ignore this email and continue being fabulous.</p>
-    `,
+    body: `<p style="margin:0;">Quick identity check. Drop this code in the app and continue your legendary ordering streak.</p>`,
+    details: [
+      { label: "One-time code", value: otp },
+      { label: "Expires in", value: "5 minutes" },
+    ],
+    footerLead: "Security check, almost done.",
+    footerText: "If this was not you, ignore this email and keep being iconic.",
   });
 };
 
 const generateOtpText = (otp) => {
-  return `CampusIn code: ${otp}. Valid for 5 minutes. If this was not you, ignore this and carry on.`;
+  return `CampusIn OTP: ${otp}. Valid for 5 minutes. Use it now, then continue your snack mission.`;
 };
 
 const generateWelcomeHTML = () => {
   return renderLayout({
-    title: "Welcome to CampusIn",
-    subtitle: "You are officially in the club",
+    title: "You are in",
+    subtitle: "Welcome to the lazy genius era",
     accentColor: EMAIL_ACCENTS.info,
-    body: `
-      <p style="margin:0 0 14px;">Your account is live. Food, marketplace finds, and campus essentials are now one tap away.</p>
-      <p style="margin:0 0 14px;">From lunch breaks to midnight snack emergencies, we are on standby.</p>
-      <p style="margin:0 0 18px;">Thanks for joining. Your "I am too busy to walk out" era starts now.</p>
-      ${renderButton({ href: config.CLIENT_URL, label: "Open CampusIn", accentColor: EMAIL_COLORS.primary })}
-      <p style="margin:0;color:${EMAIL_COLORS.ink};">Team <strong>CAMPUSIN</strong></p>
-    `,
+    body: `<p style="margin:0;">CampusIn is ready whenever your hunger, deadlines, and random marketplace cravings appear at the same time.</p>`,
+    ctaLabel: "Open CampusIn",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Your account is live.",
+    footerText: "Tap in and let future-you thank present-you.",
   });
 };
 
 const generateWelcomeText = () => {
-  return "Welcome to CampusIn. Your account is ready, your cravings are valid, and checkout is one tap away.";
+  return "Welcome to CampusIn. You are officially one tap away from food, finds, and fewer errands.";
 };
 
 const generateForgotPasswordHTML = (otp) => {
   return renderLayout({
-    title: "Reset your password",
-    subtitle: "Memory lapse recovery mission",
+    title: "Reset password",
+    subtitle: "Happens to the best brains",
     accentColor: EMAIL_ACCENTS.urgent,
-    body: `
-      <p style="margin:0 0 14px;">No stress, happens to the best of us. Use this code to reset your password:</p>
-      <p style="margin:0 0 18px;color:${EMAIL_COLORS.primary};font-size:34px;line-height:1.2;font-weight:800;letter-spacing:0.16em;">${escapeHtml(otp)}</p>
-      <p style="margin:0 0 10px;">This OTP expires in <strong style="color:${EMAIL_COLORS.coral};">5 minutes</strong>, like your patience during exams.</p>
-      <p style="margin:0;">If you did not request this, please secure your account right away.</p>
-    `,
+    body: `<p style="margin:0;">Use this code to reset your password and get back in before your coffee gets cold.</p>`,
+    details: [
+      { label: "Reset code", value: otp },
+      { label: "Expires in", value: "5 minutes" },
+    ],
+    footerLead: "No panic required.",
+    footerText: "If this request was not yours, please secure your account right away.",
   });
 };
 
 const generateForgotPasswordText = (otp) => {
-  return `CampusIn reset code: ${otp}. Valid for 5 minutes. If this was not you, secure your account immediately.`;
+  return `CampusIn password reset code: ${otp}. Valid for 5 minutes. If this was not you, secure your account now.`;
 };
 
-const generateRepairRequestEstimateHTML = (repairRequest, estimatedPrice, adminRemarks) => {
-  const remarks = adminRemarks
-    ? `<p style="margin:0 0 14px;"><strong style="color:${EMAIL_COLORS.ink};">Admin remarks:</strong> ${escapeHtml(adminRemarks)}</p>`
-    : "";
+const generateRepairRequestEstimateHTML = (
+  repairRequest,
+  estimatedPrice,
+  adminRemarks,
+) => {
+  const userName = repairRequest?.user?.username || "there";
+  const remarks = adminRemarks || "No extra notes from the repair desk.";
 
   return renderLayout({
-    title: "Repair estimate ready",
-    subtitle: "Your gadget gets a quote",
+    title: "Estimate is ready",
+    subtitle: `Hey ${escapeHtml(userName)}, your gadget has news`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(repairRequest?.user?.username || "there")},</p>
-      <p style="margin:0 0 14px;">Your repair request <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(repairRequest?.requestNumber)}</strong> has been reviewed by our fix-it squad.</p>
-      <p style="margin:0 0 14px;color:${EMAIL_COLORS.primary};font-size:29px;line-height:1.3;font-weight:800;">Rs. ${escapeHtml(estimatedPrice)}</p>
-      ${remarks}
-      <p style="margin:0;">Open CampusIn to accept or reject the estimate and decide your gadget's fate.</p>
-    `,
+    body: `<p style="margin:0;">The repair squad checked your device. Review the quote and decide whether we proceed.</p>`,
+    details: [
+      { label: "Request", value: repairRequest?.requestNumber || "N/A" },
+      { label: "Estimated price", value: `Rs. ${estimatedPrice}` },
+      { label: "Admin remarks", value: remarks },
+    ],
+    ctaLabel: "Review Estimate",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Decision time.",
+    footerText: "Accept or reject from CampusIn and we will take it from there.",
   });
 };
 
-const generateRepairRequestEstimateText = ({ requestNumber, estimatedPrice, adminRemarks }) => {
+const generateRepairRequestEstimateText = ({
+  requestNumber,
+  estimatedPrice,
+  adminRemarks,
+}) => {
   const remarksText = adminRemarks ? ` Remarks: ${adminRemarks}` : "";
-  return `Repair estimate for ${requestNumber}: Rs. ${estimatedPrice}. Open CampusIn to accept or reject and continue the repair flow.${remarksText}`;
+  return `Repair estimate for ${requestNumber}: Rs. ${estimatedPrice}. Open CampusIn to accept or reject.${remarksText}`;
 };
 
 const generateReminderHTML = (userName = "there") => {
   return renderLayout({
-    title: "Your cart is waiting",
-    subtitle: "Your snacks miss you",
+    title: "Cart is waiting",
+    subtitle: `Hey ${escapeHtml(userName)}, this is your tasty reminder`,
     accentColor: EMAIL_ACCENTS.info,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(userName)},</p>
-      <p style="margin:0 0 14px;">You left some items in your CampusIn cart. They are still there, patiently judging your hesitation.</p>
-      ${renderButton({ href: `${config.CLIENT_URL}/cart`, label: "Complete Your Order", accentColor: EMAIL_COLORS.primary })}
-      <p style="margin:0;">Quick checkout takes less than a minute. Your future self says thank you.</p>
-    `,
+    body: `<p style="margin:0;">You left items in your cart. They are still there, still delicious, and mildly offended.</p>`,
+    ctaLabel: "Complete Order",
+    ctaHref: `${config.CLIENT_URL}/cart`,
+    footerLead: "Kickoff is close.",
+    footerText: "Jump back in and check out before your willpower returns.",
   });
 };
 
 const generateReminderText = (userName = "there") => {
-  return `Hi ${userName}, your CampusIn cart is still waiting. Complete your order at ${config.CLIENT_URL}/cart before your willpower returns.`;
+  return `Hi ${userName}, your CampusIn cart is still waiting. Finish checkout at ${config.CLIENT_URL}/cart before your cravings unionize.`;
 };
 
 const generateVendorNewOrderHTML = ({
@@ -192,22 +237,30 @@ const generateVendorNewOrderHTML = ({
   totalAmount,
 }) => {
   return renderLayout({
-    title: "New order received",
-    subtitle: "Time to fire up the kitchen",
+    title: "New order",
+    subtitle: `Chef mode on, ${escapeHtml(vendorName)}`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(vendorName)},</p>
-      <p style="margin:0 0 14px;">A fresh order just landed for <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(restaurantName)}</strong>. Cue the cooking montage.</p>
-      <p style="margin:0 0 7px;"><strong>Order number:</strong> ${escapeHtml(orderNumber)}</p>
-      <p style="margin:0 0 7px;"><strong>Customer phone:</strong> ${escapeHtml(customerPhone)}</p>
-      <p style="margin:0 0 14px;"><strong>Total amount:</strong> Rs. ${escapeHtml(totalAmount)}</p>
-      ${renderButton({ href: config.CLIENT_URL, label: "Open Dashboard", accentColor: EMAIL_COLORS.azure })}
-    `,
+    body: `<p style="margin:0;">A fresh order landed for your kitchen. The customer is hungry and hopeful.</p>`,
+    details: [
+      { label: "Restaurant", value: restaurantName },
+      { label: "Order", value: orderNumber },
+      { label: "Customer", value: customerPhone },
+      { label: "Total", value: `Rs. ${totalAmount}` },
+    ],
+    ctaLabel: "Open Dashboard",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Time to cook.",
+    footerText: "Mark status updates quickly so delivery keeps pace.",
   });
 };
 
-const generateVendorNewOrderText = ({ orderNumber, restaurantName, customerPhone, totalAmount }) => {
-  return `New order ${orderNumber} for ${restaurantName}. Customer: ${customerPhone}. Total: Rs. ${totalAmount}. Time to cook something legendary.`;
+const generateVendorNewOrderText = ({
+  orderNumber,
+  restaurantName,
+  customerPhone,
+  totalAmount,
+}) => {
+  return `New order ${orderNumber} for ${restaurantName}. Customer: ${customerPhone}. Total: Rs. ${totalAmount}. Kitchen hero mode starts now.`;
 };
 
 const generateAdminMarketplaceOrderHTML = ({
@@ -218,21 +271,29 @@ const generateAdminMarketplaceOrderHTML = ({
   finalAmount,
 }) => {
   return renderLayout({
-    title: "New marketplace order",
-    subtitle: "New order on deck",
+    title: "Marketplace ping",
+    subtitle: `Heads up, ${escapeHtml(adminName)}`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(adminName)},</p>
-      <p style="margin:0 0 7px;"><strong>Order number:</strong> ${escapeHtml(orderNumber)}</p>
-      <p style="margin:0 0 7px;"><strong>Category:</strong> ${escapeHtml(categoryName)}</p>
-      <p style="margin:0 0 7px;"><strong>Customer phone:</strong> ${escapeHtml(customerPhone)}</p>
-      <p style="margin:0 0 14px;"><strong>Total amount:</strong> Rs. ${escapeHtml(finalAmount)}</p>
-      ${renderButton({ href: config.CLIENT_URL, label: "Open Dashboard", accentColor: EMAIL_COLORS.azure })}
-    `,
+    body: `<p style="margin:0;">A new marketplace order just came in and needs smooth ops handling.</p>`,
+    details: [
+      { label: "Order", value: orderNumber },
+      { label: "Category", value: categoryName },
+      { label: "Customer", value: customerPhone },
+      { label: "Total", value: `Rs. ${finalAmount}` },
+    ],
+    ctaLabel: "Open Dashboard",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Flow is active.",
+    footerText: "Assign, confirm, and keep the timeline crisp.",
   });
 };
 
-const generateAdminMarketplaceOrderText = ({ orderNumber, categoryName, customerPhone, finalAmount }) => {
+const generateAdminMarketplaceOrderText = ({
+  orderNumber,
+  categoryName,
+  customerPhone,
+  finalAmount,
+}) => {
   return `Marketplace order ${orderNumber} is in. Category: ${categoryName}. Customer: ${customerPhone}. Total: Rs. ${finalAmount}.`;
 };
 
@@ -244,22 +305,30 @@ const generateDeliveryAssignmentHTML = ({
   deliveryAddress,
 }) => {
   return renderLayout({
-    title: "Delivery assigned to you",
-    subtitle: "Hero mode activated",
+    title: "Delivery assigned",
+    subtitle: `Road captain mode, ${escapeHtml(deliveryPartnerName)}`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(deliveryPartnerName)}, your next mission just dropped:</p>
-      <p style="margin:0 0 7px;"><strong>Order number:</strong> ${escapeHtml(orderNumber)}</p>
-      <p style="margin:0 0 7px;"><strong>Pickup from:</strong> ${escapeHtml(pickupFrom)}</p>
-      <p style="margin:0 0 7px;"><strong>Customer phone:</strong> ${escapeHtml(customerPhone)}</p>
-      <p style="margin:0 0 14px;"><strong>Delivery address:</strong> ${escapeHtml(deliveryAddress)}</p>
-      ${renderButton({ href: config.CLIENT_URL, label: "View Delivery Details", accentColor: EMAIL_COLORS.azure })}
-    `,
+    body: `<p style="margin:0;">Your next delivery quest is ready. Grab, ride, deliver, repeat.</p>`,
+    details: [
+      { label: "Order", value: orderNumber },
+      { label: "Pickup", value: pickupFrom },
+      { label: "Customer", value: customerPhone },
+      { label: "Address", value: deliveryAddress },
+    ],
+    ctaLabel: "View Delivery",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Mission accepted.",
+    footerText: "Keep the customer posted and the wheels moving.",
   });
 };
 
-const generateDeliveryAssignmentText = ({ orderNumber, pickupFrom, customerPhone, deliveryAddress }) => {
-  return `Delivery assigned: ${orderNumber}. Pickup: ${pickupFrom}. Customer: ${customerPhone}. Address: ${deliveryAddress}. Go get it.`;
+const generateDeliveryAssignmentText = ({
+  orderNumber,
+  pickupFrom,
+  customerPhone,
+  deliveryAddress,
+}) => {
+  return `Delivery assigned: ${orderNumber}. Pickup: ${pickupFrom}. Customer: ${customerPhone}. Address: ${deliveryAddress}. Go win this route.`;
 };
 
 const generateAdminRepairRequestSubmittedHTML = ({
@@ -270,21 +339,29 @@ const generateAdminRepairRequestSubmittedHTML = ({
   pickupLocation,
 }) => {
   return renderLayout({
-    title: "New repair request submitted",
-    subtitle: "Another gadget needs saving",
+    title: "Repair request",
+    subtitle: `Admin alert for ${escapeHtml(adminName)}`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(adminName)},</p>
-      <p style="margin:0 0 7px;"><strong>Request number:</strong> ${escapeHtml(requestNumber)}</p>
-      <p style="margin:0 0 7px;"><strong>Service type:</strong> ${escapeHtml(serviceType)}</p>
-      <p style="margin:0 0 7px;"><strong>Customer phone:</strong> ${escapeHtml(customerPhone)}</p>
-      <p style="margin:0 0 14px;"><strong>Pickup location:</strong> ${escapeHtml(pickupLocation)}</p>
-      ${renderButton({ href: config.CLIENT_URL, label: "Open Dashboard", accentColor: EMAIL_COLORS.azure })}
-    `,
+    body: `<p style="margin:0;">A new repair request entered the queue and awaits assignment.</p>`,
+    details: [
+      { label: "Request", value: requestNumber },
+      { label: "Service", value: serviceType },
+      { label: "Customer", value: customerPhone },
+      { label: "Pickup", value: pickupLocation },
+    ],
+    ctaLabel: "Open Dashboard",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Another device to rescue.",
+    footerText: "Review, assign, and keep the repair train rolling.",
   });
 };
 
-const generateAdminRepairRequestSubmittedText = ({ requestNumber, serviceType, customerPhone, pickupLocation }) => {
+const generateAdminRepairRequestSubmittedText = ({
+  requestNumber,
+  serviceType,
+  customerPhone,
+  pickupLocation,
+}) => {
   return `New repair request ${requestNumber}. Service: ${serviceType}. Customer: ${customerPhone}. Pickup: ${pickupLocation}.`;
 };
 
@@ -295,41 +372,52 @@ const generateAdminRepairPriceDecisionHTML = ({
   customerPhone,
 }) => {
   const decision = String(requestStatus || "").toUpperCase();
-  const accent = decision === "REJECTED" ? EMAIL_ACCENTS.urgent : EMAIL_ACCENTS.info;
+  const isRejected = decision === "REJECTED";
 
   return renderLayout({
-    title: "Customer decision received",
-    subtitle: "Estimate verdict is in",
-    accentColor: accent,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(adminName)},</p>
-      <p style="margin:0 0 7px;"><strong>Request number:</strong> ${escapeHtml(requestNumber)}</p>
-      <p style="margin:0 0 7px;"><strong>Customer phone:</strong> ${escapeHtml(customerPhone)}</p>
-      <p style="margin:0 0 14px;"><strong>Decision:</strong> <span style="color:${decision === "REJECTED" ? EMAIL_COLORS.coral : EMAIL_COLORS.primary};font-weight:700;">${escapeHtml(decision)}</span></p>
-      ${renderButton({ href: config.CLIENT_URL, label: "Open Dashboard", accentColor: EMAIL_COLORS.azure })}
-    `,
+    title: "Customer verdict",
+    subtitle: `Update for ${escapeHtml(adminName)}`,
+    accentColor: isRejected ? EMAIL_ACCENTS.danger : EMAIL_ACCENTS.info,
+    body: `<p style="margin:0;">The customer responded to your estimate. Update workflow accordingly.</p>`,
+    details: [
+      { label: "Request", value: requestNumber },
+      { label: "Customer", value: customerPhone },
+      { label: "Decision", value: decision || "PENDING" },
+    ],
+    ctaLabel: "Open Dashboard",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Reply received.",
+    footerText: isRejected
+      ? "No worries. Re-route the request and keep moving."
+      : "Great news. Move to the next repair step.",
   });
 };
 
-const generateAdminRepairPriceDecisionText = ({ requestNumber, requestStatus, customerPhone }) => {
-  return `Repair request ${requestNumber} decision: ${requestStatus}. Customer: ${customerPhone}. Update the workflow when ready.`;
+const generateAdminRepairPriceDecisionText = ({
+  requestNumber,
+  requestStatus,
+  customerPhone,
+}) => {
+  return `Repair request ${requestNumber} decision: ${requestStatus}. Customer: ${customerPhone}.`;
 };
 
 const generatePrintingOrderCreatedHTML = ({ username, orderNumber, amount }) => {
   return renderLayout({
-    title: "Print order created",
-    subtitle: "Your pages are in the queue",
+    title: "Print queued",
+    subtitle: `Hey ${escapeHtml(username || "there")}, pages are lining up`,
     accentColor: EMAIL_ACCENTS.info,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(username || "there")},</p>
-      <p style="margin:0 0 14px;">Your print order <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(orderNumber)}</strong> is created and waiting for the printer to wake up.</p>
-      <p style="margin:0;color:${EMAIL_COLORS.primary};font-size:22px;line-height:1.3;font-weight:800;">Total: INR ${escapeHtml(amount)}</p>
-    `,
+    body: `<p style="margin:0;">Your print order is in the queue. The printer squad has been notified.</p>`,
+    details: [
+      { label: "Order", value: orderNumber },
+      { label: "Amount", value: `INR ${amount}` },
+    ],
+    footerLead: "Ink incoming.",
+    footerText: "We will ping you as soon as status changes.",
   });
 };
 
 const generatePrintingOrderCreatedText = ({ orderNumber, amount }) => {
-  return `Your print order ${orderNumber} is created. Total: INR ${amount}. Ink is warming up.`;
+  return `Your print order ${orderNumber} is created. Total: INR ${amount}. Ink engines are warming up.`;
 };
 
 const generateAdminPrintingOrderCreatedHTML = ({
@@ -340,15 +428,20 @@ const generateAdminPrintingOrderCreatedHTML = ({
   deliveryAddress,
 }) => {
   return renderLayout({
-    title: "New print order received",
-    subtitle: "Fresh print request alert",
+    title: "Print request",
+    subtitle: `Admin desk update for ${escapeHtml(username || "admin")}`,
     accentColor: EMAIL_ACCENTS.operational,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(username || "admin")},</p>
-      <p style="margin:0 0 14px;">A new print order <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(orderNumber)}</strong> was placed by ${escapeHtml(userName)}.</p>
-      <p style="margin:0 0 8px;"><strong>Contact mobile:</strong> ${escapeHtml(contactMobile)}</p>
-      <p style="margin:0;"><strong>Delivery address:</strong> ${escapeHtml(deliveryAddress)}</p>
-    `,
+    body: `<p style="margin:0;">A new print order was placed. Please review and process.</p>`,
+    details: [
+      { label: "Order", value: orderNumber },
+      { label: "Customer", value: userName },
+      { label: "Contact", value: contactMobile },
+      { label: "Address", value: deliveryAddress || "N/A" },
+    ],
+    ctaLabel: "Open Dashboard",
+    ctaHref: config.CLIENT_URL,
+    footerLead: "Queue updated.",
+    footerText: "Assign quickly and keep turnaround sharp.",
   });
 };
 
@@ -361,22 +454,29 @@ const generateAdminPrintingOrderCreatedText = ({
   return `New print order ${orderNumber} by ${userName}. Contact: ${contactMobile}. Delivery address: ${deliveryAddress}.`;
 };
 
-const generatePrintingOrderStatusHTML = ({ username, orderNumber, status, note }) => {
+const generatePrintingOrderStatusHTML = ({
+  username,
+  orderNumber,
+  status,
+  note,
+}) => {
   const upperStatus = String(status || "").toUpperCase();
   const isUrgent = ["REJECTED", "CANCELLED"].includes(upperStatus);
-  const noteBlock = note
-    ? `<p style="margin:14px 0 0;"><strong>Note:</strong> ${escapeHtml(note)}</p>`
-    : "";
 
   return renderLayout({
-    title: "Print order status updated",
-    subtitle: "Progress from the print desk",
-    accentColor: isUrgent ? EMAIL_ACCENTS.urgent : EMAIL_ACCENTS.info,
-    body: `
-      <p style="margin:0 0 14px;">Hi ${escapeHtml(username || "there")},</p>
-      <p style="margin:0 0 14px;">Your print order <strong style="color:${EMAIL_COLORS.ink};">${escapeHtml(orderNumber)}</strong> is now <strong style="color:${isUrgent ? EMAIL_COLORS.coral : EMAIL_COLORS.primary};">${escapeHtml(upperStatus)}</strong>.</p>
-      ${noteBlock}
-    `,
+    title: "Print status",
+    subtitle: `Update for ${escapeHtml(username || "there")}`,
+    accentColor: isUrgent ? EMAIL_ACCENTS.danger : EMAIL_ACCENTS.info,
+    body: `<p style="margin:0;">Your print order status changed. See the latest update below.</p>`,
+    details: [
+      { label: "Order", value: orderNumber },
+      { label: "Status", value: upperStatus || "PENDING" },
+      { label: "Note", value: note || "No additional note" },
+    ],
+    footerLead: isUrgent ? "Update needs your attention." : "Progress looks good.",
+    footerText: isUrgent
+      ? "Open CampusIn for the next step on this order."
+      : "We will notify you again as it moves forward.",
   });
 };
 

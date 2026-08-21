@@ -23,6 +23,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "generate:postman": "node scripts/generate-postman-collection.js",
+    "preview:emails": "node scripts/generate-email-previews.js",
     "seed:loadtest-users": "node scripts/seed-loadtest-users.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
