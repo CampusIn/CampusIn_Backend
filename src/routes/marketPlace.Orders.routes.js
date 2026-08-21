@@ -35,4 +35,18 @@ marketPlaceOrdersRouter.patch(
   marketPlaceOrdersController.cancelMarketPlaceOrder,
 );
 
+marketPlaceOrdersRouter.get(
+  "/coupons/view",
+  authMiddleware,
+  roleMiddleware("user"),
+  marketPlaceOrdersController.getAllMarketplaceCoupons,
+);
+
+marketPlaceOrdersRouter.post(
+  "/coupons/apply",
+  authMiddleware,
+  roleMiddleware("user"),
+  marketPlaceOrdersController.applyMarketplaceCoupon,
+);
+
 export default marketPlaceOrdersRouter;

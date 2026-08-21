@@ -62,6 +62,16 @@ const couponSchema = new mongoose.Schema(
       enum: ["admin", "lucky_wheel"],
       default: "admin",
     },
+    scopeType: {
+      type: String,
+      enum: ["ALL", "FOOD", "MARKETPLACE_CATEGORY"],
+      default: "ALL",
+    },
+    marketplaceCategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MarketPlaceCategory",
+      default: null,
+    },
     isActive: {
       type: Boolean,
       default: true,
