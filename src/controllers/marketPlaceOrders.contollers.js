@@ -20,6 +20,7 @@ import {
   setMarketplaceOrderHistoryCached,
   deleteMarketplaceOrderHistoryCached,
 } from "../services/marketPlaceOrderHistoryCached.services.js";
+import { getCouponCached, setCouponCached } from "../services/couponCached.services.js";
 import { deleteProductCached } from "../services/marketPlaceProductsCached.services.js";
 import { redis } from "../config/redis.js";
 import {
@@ -42,6 +43,42 @@ const ensureCouponOwnership = (coupon, userId) => {
   if (coupon.assignedTo?.toString() !== userId) {
     throw new ApiError(403, "This coupon is not assigned to your account.");
   }
+};
+
+const getMarketplaceCouponScopeFilter = (categoryId) => ({
+  $or: [
+    { scopeType: "ALL" },
+    {
+      scopeType: "MARKETPLACE_CATEGORY",
+      marketplaceCategory: categoryId,
+    },
+    { scopeType: { $exists: false } },
+    { scopeType: null },
+  ],
+});
+
+const ensureCouponApplicableForMarketplace = (coupon, categoryId) => {
+  const scopeType = coupon?.scopeType || "ALL";
+
+  if (scopeType === "ALL") {
+    return;
+  }
+
+  if (
+    scopeType === "MARKETPLACE_CATEGORY" &&
+    coupon.marketplaceCategory?.toString() === categoryId.toString()
+  ) {
+    return;
+  }
+
+  if (scopeType === "FOOD") {
+    throw new ApiError(400, "This coupon is only valid for food orders");
+  }
+
+  throw new ApiError(
+    400,
+    "This coupon is not valid for this marketplace category",
+  );
 };
 
 const validateMarketCartItems = (cartItems) => {
@@ -107,7 +144,7 @@ const restoreMarketOrderStock = async (orderItems, session) => {
   }
 };
 
-const calculateCouponDiscount = async (couponId, userId, subTotal) => {
+const calculateCouponDiscount = async (couponId, userId, subTotal, categoryId) => {
   if (!couponId) {
     return {
       coupon: null,
@@ -131,6 +168,7 @@ const calculateCouponDiscount = async (couponId, userId, subTotal) => {
   }
 
   ensureCouponOwnership(coupon, userId);
+  ensureCouponApplicableForMarketplace(coupon, categoryId);
 
   const alreadyUsed = await couponUsageModel.findOne({
     coupon: coupon._id,
@@ -290,6 +328,7 @@ const createMarketPlaceOrder = asyncHandler(async (req, res) => {
     couponId,
     req.user.id,
     subTotal,
+    category._id,
   );
   const pricingBase = subTotal - couponDiscount;
   const gstPercentage = pricingSettings.gstPercentage;
@@ -626,9 +665,199 @@ const cancelMarketPlaceOrder = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Order has been cancelled", order));
 });
 
+const getAllMarketplaceCoupons = asyncHandler(async (req, res) => {
+  const cart = await marketCartModel.findOne({ user: req.user.id }).select(
+    "category items",
+  );
+
+  if (!cart || cart.items.length === 0) {
+    throw new ApiError(400, "Add marketplace items to cart to view coupons");
+  }
+
+  const todayDate = new Date();
+  const scopeKey = `marketplace:${cart.category.toString()}`;
+  const categoryScopeFilter = getMarketplaceCouponScopeFilter(cart.category);
+  const cachedPublicCoupons = await getCouponCached(scopeKey);
+
+  const [publicCoupons, personalCoupons] = await Promise.all([
+    cachedPublicCoupons
+      ? Promise.resolve(cachedPublicCoupons)
+      : couponModel
+          .find({
+            isActive: true,
+            expiryDate: { $gte: todayDate },
+            $and: [
+              {
+                $or: [
+                  { type: "public" },
+                  { type: { $exists: false } },
+                  { type: null },
+                ],
+              },
+              categoryScopeFilter,
+            ],
+          })
+          .sort({
+            maximumDiscount: -1,
+            expiryDate: -1,
+          })
+          .select(
+            "_id code discountType discountValue minimumOrderValue maximumDiscount expiryDate scopeType marketplaceCategory",
+          )
+          .lean(),
+    couponModel
+      .find({
+        isActive: true,
+        expiryDate: { $gte: todayDate },
+        type: "personal",
+        assignedTo: req.user.id,
+        ...categoryScopeFilter,
+      })
+      .sort({
+        expiryDate: -1,
+        createdAt: -1,
+      })
+      .select(
+        "_id code discountType discountValue minimumOrderValue maximumDiscount expiryDate scopeType marketplaceCategory",
+      )
+      .lean(),
+  ]);
+
+  if (!cachedPublicCoupons) {
+    await setCouponCached(scopeKey, publicCoupons);
+  }
+
+  const coupons = [...publicCoupons, ...personalCoupons];
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Coupons fetched successfully", coupons));
+});
+
+const applyMarketplaceCoupon = asyncHandler(async (req, res) => {
+  const { couponId } = req.body;
+  if (!mongoose.Types.ObjectId.isValid(couponId)) {
+    throw new ApiError(400, "Invalid Coupon ID");
+  }
+
+  const cart = await marketCartModel
+    .findOne({ user: req.user.id })
+    .populate({
+      path: "items.product",
+      select: "name price images stock isActive category",
+    });
+
+  if (!cart || cart.items.length === 0) {
+    throw new ApiError(400, "Cart is empty");
+  }
+
+  validateMarketCartItems(cart.items);
+
+  const category = await marketPlaceCategoryModel.findOne({
+    _id: cart.category,
+    isActive: true,
+  }).select("name pricingSettings");
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  if (!category.pricingSettings) {
+    throw new ApiError(
+      400,
+      "Marketplace pricing settings are not configured for this category",
+    );
+  }
+
+  const subTotal = cart.items.reduce((total, item) => {
+    return total + item.product.price * item.quantity;
+  }, 0);
+
+  const todayDate = new Date();
+  const coupon = await couponModel.findOne({
+    _id: couponId,
+    isActive: true,
+    expiryDate: { $gte: todayDate },
+  });
+
+  if (!coupon) {
+    throw new ApiError(400, "Invalid coupon");
+  }
+
+  ensureCouponOwnership(coupon, req.user.id);
+  ensureCouponApplicableForMarketplace(coupon, cart.category);
+
+  const alreadyUsed = await couponUsageModel.findOne({
+    coupon: coupon._id,
+    user: req.user.id,
+  });
+
+  if (alreadyUsed) {
+    throw new ApiError(400, "You have already used this coupon");
+  }
+
+  if (coupon.usageLimit <= coupon.usageCount) {
+    throw new ApiError(400, "Coupon usage limit is over");
+  }
+
+  if (coupon.minimumOrderValue > subTotal) {
+    throw new ApiError(
+      400,
+      "Total should be above minimum order value to apply the coupon",
+    );
+  }
+
+  let discount = 0;
+  if (coupon.discountType === "PERCENTAGE") {
+    discount = Math.round((subTotal * coupon.discountValue) / 100);
+    if (discount > coupon.maximumDiscount) {
+      discount = coupon.maximumDiscount;
+    }
+  } else if (coupon.discountType === "FIXED") {
+    discount = coupon.discountValue;
+  }
+
+  const couponDiscount = Math.min(discount, subTotal);
+  const pricingBase = subTotal - couponDiscount;
+  const pricingSettings = category.pricingSettings;
+  const gstPercentage = pricingSettings.gstPercentage;
+  const gstAmount = Math.round((pricingBase * gstPercentage) / 100);
+  const deliveryCharge =
+    pricingBase >= pricingSettings.freeDeliveryAbove
+      ? 0
+      : pricingSettings.deliveryCharge;
+  const packagingCharge = pricingSettings.packagingCharge;
+  const platformCharge = pricingSettings.platformCharge || 0;
+  const finalAmount =
+    pricingBase + gstAmount + deliveryCharge + packagingCharge + platformCharge;
+
+  return res.status(200).json(
+    new ApiResponse(200, "Coupon applied successfully", {
+      applied: true,
+      coupon: {
+        code: coupon.code,
+        couponId,
+        couponDiscount,
+        isUsed: false,
+      },
+      pricing: {
+        subTotal,
+        couponDiscount,
+        subTotalAfterDiscount: pricingBase,
+        gstAmount,
+        packagingCharge,
+        deliveryCharge,
+        platformCharge,
+        finalAmount,
+      },
+    }),
+  );
+});
+
 export default {
   createMarketPlaceOrder,
   getAllMarketPlaceOrders,
   getSingleMarketPlaceOrder,
   cancelMarketPlaceOrder,
+  getAllMarketplaceCoupons,
+  applyMarketplaceCoupon,
 };

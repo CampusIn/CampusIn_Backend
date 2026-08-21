@@ -15,6 +15,7 @@ const validateResult = (req, res, next) => {
 };
 
 const allowedTypes = ["PERCENTAGE", "FIXED"];
+const allowedScopeTypes = ["ALL", "FOOD", "MARKETPLACE_CATEGORY"];
 const couponUpdateValidationRules = [
   body("code")
     .optional()
@@ -44,6 +45,16 @@ const couponUpdateValidationRules = [
     .withMessage("Maximum discount value cannot be negative"),
 
   body("expiryDate").optional().isISO8601().withMessage("Must be a valid date"),
+
+  body("scopeType")
+    .optional()
+    .isIn(allowedScopeTypes)
+    .withMessage("Invalid coupon scope type"),
+
+  body("marketplaceCategory")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Marketplace category ID is invalid"),
 
   validateResult,
 ];

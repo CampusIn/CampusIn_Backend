@@ -66,6 +66,116 @@ const REPAIR_REQUEST_STATUSES = [
   "COMPLETED",
 ];
 const REPAIR_SERVICE_TYPES = ["MOBILE", "LAPTOP", "COOLERS", "OTHERS"];
+const COUPON_SCOPE_TYPES = ["ALL", "FOOD", "MARKETPLACE_CATEGORY"];
+
+const resolveMarketplaceScopedCouponCategory = async (marketplaceCategory) => {
+  if (!mongoose.Types.ObjectId.isValid(marketplaceCategory)) {
+    throw new ApiError(400, "Marketplace category ID is invalid");
+  }
+
+  const category = await marketPlaceCategoryModel.findById(marketplaceCategory)
+    .select("_id isActive")
+    .lean();
+
+  if (!category) {
+    throw new ApiError(404, "Marketplace category not found");
+  }
+
+  if (!category.isActive) {
+    throw new ApiError(400, "Marketplace category is inactive");
+  }
+
+  return category._id;
+};
+
+const resolveCouponScopeForCreate = async ({ scopeType, marketplaceCategory }) => {
+  const normalizedScopeType = scopeType || "ALL";
+
+  if (!COUPON_SCOPE_TYPES.includes(normalizedScopeType)) {
+    throw new ApiError(400, "Invalid coupon scope type");
+  }
+
+  if (normalizedScopeType === "MARKETPLACE_CATEGORY") {
+    if (!marketplaceCategory) {
+      throw new ApiError(
+        400,
+        "Marketplace category is required for category specific coupons",
+      );
+    }
+
+    const resolvedCategory = await resolveMarketplaceScopedCouponCategory(
+      marketplaceCategory,
+    );
+
+    return {
+      scopeType: normalizedScopeType,
+      marketplaceCategory: resolvedCategory,
+    };
+  }
+
+  if (marketplaceCategory !== undefined && marketplaceCategory !== null) {
+    throw new ApiError(
+      400,
+      "Marketplace category is allowed only for category specific coupons",
+    );
+  }
+
+  return {
+    scopeType: normalizedScopeType,
+    marketplaceCategory: null,
+  };
+};
+
+const resolveCouponScopeForUpdate = async (coupon, updates) => {
+  const hasScopeType = Object.prototype.hasOwnProperty.call(updates, "scopeType");
+  const hasMarketplaceCategory = Object.prototype.hasOwnProperty.call(
+    updates,
+    "marketplaceCategory",
+  );
+  const nextScopeType = hasScopeType ? updates.scopeType : coupon.scopeType || "ALL";
+
+  if (!COUPON_SCOPE_TYPES.includes(nextScopeType)) {
+    throw new ApiError(400, "Invalid coupon scope type");
+  }
+
+  if (nextScopeType === "MARKETPLACE_CATEGORY") {
+    const nextMarketplaceCategory = hasMarketplaceCategory
+      ? updates.marketplaceCategory
+      : coupon.marketplaceCategory;
+
+    if (!nextMarketplaceCategory) {
+      throw new ApiError(
+        400,
+        "Marketplace category is required for category specific coupons",
+      );
+    }
+
+    const resolvedCategory = await resolveMarketplaceScopedCouponCategory(
+      nextMarketplaceCategory,
+    );
+
+    return {
+      scopeType: nextScopeType,
+      marketplaceCategory: resolvedCategory,
+    };
+  }
+
+  if (
+    hasMarketplaceCategory &&
+    updates.marketplaceCategory !== undefined &&
+    updates.marketplaceCategory !== null
+  ) {
+    throw new ApiError(
+      400,
+      "Marketplace category is allowed only for category specific coupons",
+    );
+  }
+
+  return {
+    scopeType: nextScopeType,
+    marketplaceCategory: null,
+  };
+};
 
 const addRepairRequestSearchFilter = (filter, search) => {
   if (!search) {
@@ -533,6 +643,8 @@ const createCoupons = asyncHandler(async (req, res) => {
     maximumDiscount,
     expiryDate,
     usageLimit,
+    scopeType,
+    marketplaceCategory,
   } = req.body;
 
   const normalisedCode = code.trim().toUpperCase();
@@ -560,6 +672,11 @@ const createCoupons = asyncHandler(async (req, res) => {
     maximumDiscount = 0;
   }
 
+  const resolvedScope = await resolveCouponScopeForCreate({
+    scopeType,
+    marketplaceCategory,
+  });
+
   const coupon = await couponModel.create({
     code: normalisedCode,
     discountType,
@@ -569,6 +686,8 @@ const createCoupons = asyncHandler(async (req, res) => {
     expiryDate,
     usageLimit,
     createdBy: req.user.id,
+    scopeType: resolvedScope.scopeType,
+    marketplaceCategory: resolvedScope.marketplaceCategory,
   });
 
   await deleteCouponCached();
@@ -620,6 +739,10 @@ const getAllCoupons = asyncHandler(async (req, res) => {
       .populate({
         path: "createdBy",
         select: "username",
+      })
+      .populate({
+        path: "marketplaceCategory",
+        select: "name isActive",
       }),
 
     couponModel.countDocuments(filter),
@@ -663,6 +786,9 @@ const getCouponById = asyncHandler(async (req, res) => {
   const coupon = await couponModel.findById(couponId).populate({
     path: "createdBy",
     select: "username",
+  }).populate({
+    path: "marketplaceCategory",
+    select: "name isActive",
   });
   if (!coupon) {
     throw new ApiError(404, "Coupon not found");
@@ -696,13 +822,24 @@ const updateCoupon = asyncHandler(async (req, res) => {
     if (isExisting) {
       throw new ApiError(409, "Coupon already exists");
     }
+
+    updates.code = normalisedCode;
   }
 
+  const resolvedScope = await resolveCouponScopeForUpdate(coupon, updates);
+
   Object.entries(updates).forEach(([key, value]) => {
+    if (key === "scopeType" || key === "marketplaceCategory") {
+      return;
+    }
+
     if (value !== undefined) {
       coupon[key] = value;
     }
   });
+
+  coupon.scopeType = resolvedScope.scopeType;
+  coupon.marketplaceCategory = resolvedScope.marketplaceCategory;
 
   const expiry = new Date(coupon.expiryDate);
   if (expiry <= new Date()) {

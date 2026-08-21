@@ -15,7 +15,7 @@ import deliveryPartnerModel from "../models/deliveryPartner.models.js";
 import emailServices from "../services/emailQueue.services.js";
 import { generateVendorNewOrderHTML, generateVendorNewOrderText } from "../utils/utils.js";
 import { platformSettingsCached,setPlatformSettingsCached,deletePlatformSettingsCached } from "../services/platformSettingsCached.services.js";
-import { getCouponCached, setCouponCached, deleteCouponCached } from "../services/couponCached.services.js";
+import { getCouponCached, setCouponCached } from "../services/couponCached.services.js";
 import {
   getOrderHistoryCached,
   setOrderHistoryCached,
@@ -110,6 +110,24 @@ const ensureCouponOwnership = (coupon, userId) => {
   if (coupon.assignedTo?.toString() !== userId) {
     throw new ApiError(403, "This coupon is not assigned to your account.");
   }
+};
+
+const FOOD_COUPON_SCOPE_FILTER = {
+  $or: [
+    { scopeType: "FOOD" },
+    { scopeType: "ALL" },
+    { scopeType: { $exists: false } },
+    { scopeType: null },
+  ],
+};
+
+const ensureCouponApplicableForFood = (coupon) => {
+  const scopeType = coupon?.scopeType || "ALL";
+  if (scopeType === "FOOD" || scopeType === "ALL") {
+    return;
+  }
+
+  throw new ApiError(400, "This coupon is not valid for food orders");
 };
 
 //User order section Start
@@ -222,6 +240,7 @@ const createOrder = asyncHandler(async (req, res) => {
       _id: couponId,
       isActive: true,
       expiryDate: { $gte: todayDate },
+      ...FOOD_COUPON_SCOPE_FILTER,
     });
 
     if (!coupon) {
@@ -232,6 +251,7 @@ const createOrder = asyncHandler(async (req, res) => {
     }
 
     ensureCouponOwnership(coupon, req.user.id);
+    ensureCouponApplicableForFood(coupon);
 
     const alreadyUsed = await couponUsageModel.findOne({
       coupon: coupon._id,
@@ -846,7 +866,7 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
 
 const getAllCoupons = asyncHandler(async (req, res) => {
 
-  const cachedPublicCoupons = await getCouponCached();
+  const cachedPublicCoupons = await getCouponCached("food");
   const todayDate = new Date();
   const [publicCoupons, personalCoupons] = await Promise.all([
     cachedPublicCoupons
@@ -855,10 +875,15 @@ const getAllCoupons = asyncHandler(async (req, res) => {
           .find({
             isActive: true,
             expiryDate: { $gte: todayDate },
-            $or: [
-              { type: "public" },
-              { type: { $exists: false } },
-              { type: null },
+            $and: [
+              {
+                $or: [
+                  { type: "public" },
+                  { type: { $exists: false } },
+                  { type: null },
+                ],
+              },
+              FOOD_COUPON_SCOPE_FILTER,
             ],
           })
           .sort({
@@ -875,6 +900,7 @@ const getAllCoupons = asyncHandler(async (req, res) => {
         expiryDate: { $gte: todayDate },
         type: "personal",
         assignedTo: req.user.id,
+        ...FOOD_COUPON_SCOPE_FILTER,
       })
       .sort({
         expiryDate: -1,
@@ -895,7 +921,7 @@ const getAllCoupons = asyncHandler(async (req, res) => {
   }
 
   if (!cachedPublicCoupons) {
-    await setCouponCached(publicCoupons);
+    await setCouponCached("food", publicCoupons);
   }
 
   return res
@@ -913,6 +939,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
     _id: couponId,
     isActive: true,
     expiryDate: { $gte: todayDate },
+    ...FOOD_COUPON_SCOPE_FILTER,
   });
 
   if (!coupon) {
@@ -920,6 +947,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   }
 
   ensureCouponOwnership(coupon, req.user.id);
+  ensureCouponApplicableForFood(coupon);
 
   const cart = await cartModel.findOne({
     user: req.user.id,
