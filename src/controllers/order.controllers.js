@@ -100,6 +100,18 @@ const restoreOrderStock = async (orderItems, session) => {
   }
 };
 
+const isPersonalCoupon = (coupon) => coupon?.type === "personal";
+
+const ensureCouponOwnership = (coupon, userId) => {
+  if (!isPersonalCoupon(coupon)) {
+    return;
+  }
+
+  if (coupon.assignedTo?.toString() !== userId) {
+    throw new ApiError(403, "This coupon is not assigned to your account.");
+  }
+};
+
 //User order section Start
 const FOOD_ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
 
@@ -218,6 +230,8 @@ const createOrder = asyncHandler(async (req, res) => {
       }
       throw new ApiError(404, "Coupon not found");
     }
+
+    ensureCouponOwnership(coupon, req.user.id);
 
     const alreadyUsed = await couponUsageModel.findOne({
       coupon: coupon._id,
@@ -832,25 +846,47 @@ const changeOrderStatus = asyncHandler(async (req, res) => {
 
 const getAllCoupons = asyncHandler(async (req, res) => {
 
-  const cachedData = await getCouponCached()
-  if(cachedData){
-    return res
-    .status(200)
-    .json(new ApiResponse(200, "Coupons fetched successfully", cachedData));
-  }
+  const cachedPublicCoupons = await getCouponCached();
   const todayDate = new Date();
-  const coupons = await couponModel
-    .find({
-      isActive: true,
-      expiryDate: { $gte: todayDate },
-    })
-    .sort({
-      maximumDiscount: -1,
-      expiryDate: -1,
-    })
-    .select(
-      "_id code discountType discountValue minimumOrderValue maximumDiscount expiryDate",
-    );
+  const [publicCoupons, personalCoupons] = await Promise.all([
+    cachedPublicCoupons
+      ? Promise.resolve(cachedPublicCoupons)
+      : couponModel
+          .find({
+            isActive: true,
+            expiryDate: { $gte: todayDate },
+            $or: [
+              { type: "public" },
+              { type: { $exists: false } },
+              { type: null },
+            ],
+          })
+          .sort({
+            maximumDiscount: -1,
+            expiryDate: -1,
+          })
+          .select(
+            "_id code discountType discountValue minimumOrderValue maximumDiscount expiryDate",
+          )
+          .lean(),
+    couponModel
+      .find({
+        isActive: true,
+        expiryDate: { $gte: todayDate },
+        type: "personal",
+        assignedTo: req.user.id,
+      })
+      .sort({
+        expiryDate: -1,
+        createdAt: -1,
+      })
+      .select(
+        "_id code discountType discountValue minimumOrderValue maximumDiscount expiryDate",
+      )
+      .lean(),
+  ]);
+
+  const coupons = [...publicCoupons, ...personalCoupons];
 
   if (coupons.length === 0) {
     return res
@@ -858,7 +894,9 @@ const getAllCoupons = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, "No coupons to show", coupons));
   }
 
-  await setCouponCached(coupons)
+  if (!cachedPublicCoupons) {
+    await setCouponCached(publicCoupons);
+  }
 
   return res
     .status(200)
@@ -880,6 +918,8 @@ const applyCoupon = asyncHandler(async (req, res) => {
   if (!coupon) {
     throw new ApiError(400, "Invalid coupon");
   }
+
+  ensureCouponOwnership(coupon, req.user.id);
 
   const cart = await cartModel.findOne({
     user: req.user.id,
