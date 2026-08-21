@@ -32,6 +32,18 @@ import {
 const allowedPaymentMethods = ["COD", "PAY_ON_PICKUP"];
 const MARKETPLACE_ORDER_IDEMPOTENCY_TTL_SECONDS = 10 * 60;
 
+const isPersonalCoupon = (coupon) => coupon?.type === "personal";
+
+const ensureCouponOwnership = (coupon, userId) => {
+  if (!isPersonalCoupon(coupon)) {
+    return;
+  }
+
+  if (coupon.assignedTo?.toString() !== userId) {
+    throw new ApiError(403, "This coupon is not assigned to your account.");
+  }
+};
+
 const validateMarketCartItems = (cartItems) => {
   cartItems.forEach((item) => {
     if (!item.product) {
@@ -117,6 +129,8 @@ const calculateCouponDiscount = async (couponId, userId, subTotal) => {
   if (!coupon) {
     throw new ApiError(400, "Invalid coupon");
   }
+
+  ensureCouponOwnership(coupon, userId);
 
   const alreadyUsed = await couponUsageModel.findOne({
     coupon: coupon._id,

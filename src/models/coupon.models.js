@@ -1,4 +1,4 @@
-import mongoose, { disconnect } from "mongoose";
+import mongoose from "mongoose";
 
 const couponSchema = new mongoose.Schema(
   {
@@ -46,6 +46,21 @@ const couponSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    type: {
+      type: String,
+      enum: ["public", "personal"],
+      default: "public",
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    source: {
+      type: String,
+      enum: ["admin", "lucky_wheel"],
+      default: "admin",
     },
     isActive: {
       type: Boolean,
