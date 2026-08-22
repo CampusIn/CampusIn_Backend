@@ -164,6 +164,8 @@ jest.unstable_mockModule("../src/controllers/marketPlaceOrders.contollers.js", (
     getAllMarketPlaceOrders: okHandler,
     getSingleMarketPlaceOrder: okHandler,
     cancelMarketPlaceOrder: okHandler,
+    getAllMarketplaceCoupons: okHandler,
+    applyMarketplaceCoupon: okHandler,
   },
 }));
 
