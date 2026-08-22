@@ -15,7 +15,7 @@ const luckyWheelConfig = {
       id: "better-luck",
       label: "Better Luck Next Time",
       type: "none",
-      probability: 100,
+      probability: 50,
     },
     {
       id: "10-off",
@@ -23,7 +23,7 @@ const luckyWheelConfig = {
       type: "discount",
       discountType: "FIXED",
       discountValue: 10,
-      probability: 0,
+      probability: 30,
     },
     {
       id: "20-off",
@@ -31,7 +31,7 @@ const luckyWheelConfig = {
       type: "discount",
       discountType: "FIXED",
       discountValue: 20,
-      probability: 0,
+      probability: 20,
     },
     {
       id: "30-off",
