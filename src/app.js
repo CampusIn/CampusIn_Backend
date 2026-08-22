@@ -24,7 +24,6 @@ import config from "./config/config.js";
 import repairRouter from "./routes/repairRequest.routes.js";
 import printingRouter from "./routes/printing.routes.js";
 import adminPrintingRouter from "./routes/adminPrinting.routes.js";
-import luckyWheelRouter from "./routes/luckyWheel.routes.js";
 import { authMiddleware } from "./middlewares/auth.middlewares.js";
 import roleMiddleware from "./middlewares/role.middleware.js";
 import { redis } from "./config/redis.js";
@@ -166,7 +165,6 @@ app.use("/api/marketplace", marketPlaceOrdersRouter);
 app.use("/api/repair-requests", repairRouter);
 app.use("/api/printing", printingRouter);
 app.use("/api/admin/printing", adminPrintingRouter);
-app.use("/api/lucky-wheel", luckyWheelRouter);
 
 
 app.use((req, res) => {

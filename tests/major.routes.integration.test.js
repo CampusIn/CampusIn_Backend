@@ -83,6 +83,8 @@ const marketPlaceOrdersControllerMock = {
   getAllMarketPlaceOrders: makeHandler("getAllMarketPlaceOrders"),
   getSingleMarketPlaceOrder: makeHandler("getSingleMarketPlaceOrder"),
   cancelMarketPlaceOrder: makeHandler("cancelMarketPlaceOrder"),
+  getAllMarketplaceCoupons: makeHandler("getAllMarketplaceCoupons"),
+  applyMarketplaceCoupon: makeHandler("applyMarketplaceCoupon"),
 };
 
 const reviewsControllerMock = {
