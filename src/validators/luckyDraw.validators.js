@@ -1,5 +1,6 @@
 import { body, validationResult } from "express-validator";
 import ApiError from "../utils/apiErrors.js";
+import { parseIstDateTime } from "../utils/dateTime.utils.js";
 
 const validateResult = (req, res, next) => {
   const errors = validationResult(req);
@@ -19,12 +20,12 @@ const enableLuckyDrawValidationRules = [
     .notEmpty()
     .withMessage("Submission deadline is required")
     .custom((value) => {
-      const deadline = new Date(value);
+      const deadline = parseIstDateTime(value);
       if (Number.isNaN(deadline.getTime())) {
         throw new Error("Submission deadline must be a valid date");
       }
       if (deadline.getTime() <= Date.now()) {
-        throw new Error("Submission deadline must be in the future");
+        throw new Error("Submission deadline must be a future IST date and time");
       }
       return true;
     }),
@@ -92,12 +93,12 @@ const updateDeadlineValidationRules = [
     .notEmpty()
     .withMessage("Submission deadline is required")
     .custom((value) => {
-      const deadline = new Date(value);
+      const deadline = parseIstDateTime(value);
       if (Number.isNaN(deadline.getTime())) {
         throw new Error("Submission deadline must be a valid date");
       }
       if (deadline.getTime() <= Date.now()) {
-        throw new Error("Submission deadline must be in the future");
+        throw new Error("Submission deadline must be a future IST date and time");
       }
       return true;
     }),

@@ -63,4 +63,18 @@ adminLuckyDrawRouter.get(
   luckyDrawControllers.getAdminLuckyDrawDetails,
 );
 
+adminLuckyDrawRouter.delete(
+  "/:luckyDrawId",
+  authMiddleware,
+  roleMiddleware("admin"),
+  luckyDrawControllers.deleteLuckyDraw,
+);
+
+adminLuckyDrawRouter.delete(
+  "/",
+  authMiddleware,
+  roleMiddleware("admin"),
+  luckyDrawControllers.deleteLuckyDraw,
+);
+
 export default adminLuckyDrawRouter;

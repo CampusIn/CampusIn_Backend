@@ -4,6 +4,10 @@ import ApiError from "../utils/apiErrors.js";
 import ApiResponse from "../utils/apiResponse.js";
 import luckyDrawModel from "../models/luckyDraw.models.js";
 import luckyDrawEntryModel from "../models/luckyDrawEntry.models.js";
+import {
+  formatIstDateTime,
+  parseIstDateTime,
+} from "../utils/dateTime.utils.js";
 
 const normalizePhoneNumber = (phoneInput) => {
   if (!phoneInput) {
@@ -183,6 +187,7 @@ const getUserLuckyDrawStatus = asyncHandler(async (req, res) => {
       title: activeDraw.title,
       description: activeDraw.description,
       submissionDeadline: activeDraw.submissionDeadline,
+      submissionDeadlineIst: formatIstDateTime(activeDraw.submissionDeadline),
       isActive: activeDraw.isActive,
       isOver: activeDraw.isOver,
       canSubmit,
@@ -201,11 +206,11 @@ const enableLuckyDraw = asyncHandler(async (req, res) => {
     closePrevious = true,
   } = req.body;
 
-  const deadline = new Date(submissionDeadline);
+  const deadline = parseIstDateTime(submissionDeadline);
   if (Number.isNaN(deadline.getTime()) || deadline.getTime() <= Date.now()) {
     throw new ApiError(
       400,
-      "Submission deadline must be a valid future date and time",
+      "Submission deadline must be a valid future date and time in IST",
     );
   }
 
@@ -233,6 +238,7 @@ const enableLuckyDraw = asyncHandler(async (req, res) => {
       title: luckyDraw.title,
       description: luckyDraw.description,
       submissionDeadline: luckyDraw.submissionDeadline,
+      submissionDeadlineIst: formatIstDateTime(luckyDraw.submissionDeadline),
       numberOfWinners: luckyDraw.numberOfWinners,
       isActive: luckyDraw.isActive,
       status: luckyDraw.status,
@@ -262,11 +268,11 @@ const updateLuckyDrawDeadline = asyncHandler(async (req, res) => {
     );
   }
 
-  const deadline = new Date(submissionDeadline);
+  const deadline = parseIstDateTime(submissionDeadline);
   if (Number.isNaN(deadline.getTime()) || deadline.getTime() <= Date.now()) {
     throw new ApiError(
       400,
-      "Submission deadline must be a valid future date and time",
+      "Submission deadline must be a valid future date and time in IST",
     );
   }
 
@@ -280,6 +286,7 @@ const updateLuckyDrawDeadline = asyncHandler(async (req, res) => {
       luckyDrawId: luckyDraw._id,
       title: luckyDraw.title,
       submissionDeadline: luckyDraw.submissionDeadline,
+      submissionDeadlineIst: formatIstDateTime(luckyDraw.submissionDeadline),
       isActive: luckyDraw.isActive,
       status: luckyDraw.status,
     }),
@@ -465,6 +472,7 @@ const getAdminLuckyDrawDetails = asyncHandler(async (req, res) => {
       title: luckyDraw.title,
       description: luckyDraw.description,
       submissionDeadline: luckyDraw.submissionDeadline,
+      submissionDeadlineIst: formatIstDateTime(luckyDraw.submissionDeadline),
       isActive: luckyDraw.isActive,
       status: luckyDraw.status,
       isOver: luckyDraw.isOver,
@@ -481,6 +489,36 @@ const getAdminLuckyDrawDetails = asyncHandler(async (req, res) => {
   );
 });
 
+const deleteLuckyDraw = asyncHandler(async (req, res) => {
+  const luckyDrawId =
+    req.params?.luckyDrawId || req.body?.luckyDrawId || req.query?.luckyDrawId;
+
+  if (luckyDrawId && !/^[0-9a-fA-F]{24}$/.test(String(luckyDrawId))) {
+    throw new ApiError(400, "Invalid lucky draw ID format");
+  }
+
+  const query = luckyDrawId ? { _id: luckyDrawId } : {};
+  const luckyDraw = await luckyDrawModel
+    .findOne(query)
+    .sort({ createdAt: -1 });
+
+  if (!luckyDraw) {
+    throw new ApiError(404, "Lucky draw not found");
+  }
+
+  await Promise.all([
+    luckyDrawEntryModel.deleteMany({ luckyDraw: luckyDraw._id }),
+    luckyDrawModel.deleteOne({ _id: luckyDraw._id }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Lucky draw removed successfully", {
+      luckyDrawId: luckyDraw._id,
+      title: luckyDraw.title,
+    }),
+  );
+});
+
 export default {
   submitEntry,
   getUserWinners,
@@ -491,4 +529,5 @@ export default {
   getAdminLuckyDrawWinners,
   getAdminLuckyDrawParticipants,
   getAdminLuckyDrawDetails,
+  deleteLuckyDraw,
 };
