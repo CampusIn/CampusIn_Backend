@@ -70,19 +70,19 @@ const normalizeJobName = (jobName) => {
 };
 
 const inferJobNameFromPayload = (data = {}) => {
-  if (data.otpHtml) return "SEND_OTP";
-  if (data.welcomeHtml) return "WELCOME";
-  if (data.forgotHtml) return "FORGOT_PASSWORD";
-  if (data.estimateHtml) return "REPAIR_REQUEST_ESTIMATE";
-  if (data.reminderHtml) return "REMINDER";
-  if (data.vendorOrderHtml) return "VENDOR_NEW_ORDER";
-  if (data.adminMarketplaceOrderHtml) return "ADMIN_MARKETPLACE_NEW_ORDER";
-  if (data.deliveryAssignmentHtml) return "DELIVERY_ASSIGNMENT";
-  if (data.repairRequestSubmittedHtml) return "ADMIN_REPAIR_REQUEST_SUBMITTED";
-  if (data.repairPriceDecisionHtml) return "ADMIN_REPAIR_PRICE_DECISION";
-  if (data.printingOrderCreatedHtml) return "PRINTING_ORDER_CREATED";
-  if (data.printingOrderStatusHtml) return "PRINTING_ORDER_STATUS_UPDATED";
-  if (data.adminPrintingOrderCreatedHtml) return "ADMIN_PRINTING_ORDER_CREATED";
+  if (data.otpHtml) { return "SEND_OTP"; }
+  if (data.welcomeHtml) { return "WELCOME"; }
+  if (data.forgotHtml) { return "FORGOT_PASSWORD"; }
+  if (data.estimateHtml) { return "REPAIR_REQUEST_ESTIMATE"; }
+  if (data.reminderHtml) { return "REMINDER"; }
+  if (data.vendorOrderHtml) { return "VENDOR_NEW_ORDER"; }
+  if (data.adminMarketplaceOrderHtml) { return "ADMIN_MARKETPLACE_NEW_ORDER"; }
+  if (data.deliveryAssignmentHtml) { return "DELIVERY_ASSIGNMENT"; }
+  if (data.repairRequestSubmittedHtml) { return "ADMIN_REPAIR_REQUEST_SUBMITTED"; }
+  if (data.repairPriceDecisionHtml) { return "ADMIN_REPAIR_PRICE_DECISION"; }
+  if (data.printingOrderCreatedHtml) { return "PRINTING_ORDER_CREATED"; }
+  if (data.printingOrderStatusHtml) { return "PRINTING_ORDER_STATUS_UPDATED"; }
+  if (data.adminPrintingOrderCreatedHtml) { return "ADMIN_PRINTING_ORDER_CREATED"; }
 
   return null;
 };
