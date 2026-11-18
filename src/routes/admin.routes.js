@@ -21,6 +21,7 @@ import {
 } from "../validators/repairRequest.validators.js";
 import upload from "../middlewares/multer.middlewares.js";
 import { uploadLimiter } from "../middlewares/rateLimiter.middlewares.js";
+import adminLuckyDrawRouter from "./adminLuckyDraw.routes.js";
 
 const adminRouter = Router();
 
@@ -474,5 +475,7 @@ adminRouter.patch(
   roleMiddleware("admin"),
   adminController.updateRepairPartnerStatus,
 );
+
+adminRouter.use("/lucky-draw", adminLuckyDrawRouter);
 
 export default adminRouter;
