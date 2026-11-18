@@ -6,6 +6,7 @@ const luckyDrawModelMock = {
   find: jest.fn(),
   create: jest.fn(),
   updateMany: jest.fn(),
+  deleteOne: jest.fn(),
 };
 
 const luckyDrawEntryModelMock = {
@@ -13,6 +14,7 @@ const luckyDrawEntryModelMock = {
   find: jest.fn(),
   create: jest.fn(),
   countDocuments: jest.fn(),
+  deleteMany: jest.fn(),
 };
 
 jest.unstable_mockModule("../src/models/luckyDraw.models.js", () => ({
@@ -191,6 +193,50 @@ describe("Lucky Draw Controller Unit Tests", () => {
       expect(err).toBeTruthy();
       expect(err.statusCode).toBe(400);
       expect(err.message).toMatch(/already completed/i);
+    });
+  });
+
+  describe("Admin - deleteLuckyDraw", () => {
+    it("should remove a lucky draw and its entries", async () => {
+      const mockDraw = {
+        _id: "507f1f77bcf86cd799439011",
+        title: "Campus Draw",
+      };
+
+      luckyDrawModelMock.findOne.mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockDraw),
+      });
+      luckyDrawModelMock.deleteOne.mockResolvedValue({ deletedCount: 1 });
+      luckyDrawEntryModelMock.deleteMany.mockResolvedValue({ deletedCount: 4 });
+
+      const req = { params: { luckyDrawId: mockDraw._id }, body: {} };
+
+      const { err, res } = await runController(
+        luckyDrawControllers.deleteLuckyDraw,
+        req,
+      );
+
+      expect(err).toBeNull();
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(luckyDrawEntryModelMock.deleteMany).toHaveBeenCalledWith({
+        luckyDraw: mockDraw._id,
+      });
+      expect(luckyDrawModelMock.deleteOne).toHaveBeenCalledWith({
+        _id: mockDraw._id,
+      });
+      expect(res.data.data.luckyDrawId).toBe(mockDraw._id);
+    });
+
+    it("should reject an invalid lucky draw id", async () => {
+      const req = { params: { luckyDrawId: "not-an-id" }, body: {} };
+
+      const { err } = await runController(
+        luckyDrawControllers.deleteLuckyDraw,
+        req,
+      );
+
+      expect(err).toBeTruthy();
+      expect(err.statusCode).toBe(400);
     });
   });
 
