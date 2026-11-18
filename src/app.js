@@ -129,7 +129,7 @@ app.get("/health", (req, res) => {
 app.get("/ready", async (req, res) => {
   const mongoReady = mongoose.connection.readyState === 1;
 
-  let redisReady = false;
+  let redisReady;
   try {
     await withTimeout(redis.ping(), readinessTimeoutMs);
     redisReady = true;
